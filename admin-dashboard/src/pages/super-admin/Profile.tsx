@@ -30,6 +30,10 @@ export default function SuperAdminProfile() {
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const publishProfileUpdate = (updated: UserProfile) => {
+    window.dispatchEvent(new CustomEvent<UserProfile>("admin-profile-updated", { detail: updated }));
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -44,6 +48,7 @@ export default function SuperAdminProfile() {
     try {
       const profileData = await profileApi.getProfile();
       setProfile(profileData);
+      publishProfileUpdate(profileData);
 
       // Initialize form data with current profile values
       setFormData({
@@ -110,6 +115,7 @@ export default function SuperAdminProfile() {
       const updatedProfile = await profileApi.updateProfile(cleanFormData);
 
       setProfile(updatedProfile);
+      publishProfileUpdate(updatedProfile);
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully.",

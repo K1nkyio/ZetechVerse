@@ -68,12 +68,35 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
   const [comments, setComments] = useState<UnifiedComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [confessionFetchFailed, setConfessionFetchFailed] = useState(false);
+
+  const normalizeEntityType = (rawType: unknown): UnifiedComment['entity_type'] | null => {
+    const value = String(rawType || '').toLowerCase();
+    if (value === 'blog_post' || value === 'blog' || value === 'post' || value === 'explore') return 'blog_post';
+    if (value === 'confession') return 'confession';
+    if (value === 'marketplace') return 'marketplace';
+    return null;
+  };
+
+  const normalizeStatus = (rawStatus: unknown): UnifiedComment['status'] => {
+    const value = String(rawStatus || '').toLowerCase();
+    if (value === 'approved' || value === 'rejected' || value === 'pending') return value;
+    return 'pending';
+  };
+
+  const getEntityTypeLabel = (type: UnifiedComment['entity_type']) => {
+    if (type === 'blog_post') return 'Blog Post';
+    if (type === 'confession') return 'Confession';
+    if (type === 'marketplace') return 'Marketplace';
+    return type;
+  };
   
   // Calculate statistics
   const confessionComments = comments.filter(c => c.entity_type === 'confession');
   const marketplaceComments = comments.filter(c => c.entity_type === 'marketplace');
+  const blogComments = comments.filter(c => c.entity_type === 'blog_post');
   const pendingConfessionComments = confessionComments.filter(c => c.status === 'pending');
   const pendingMarketplaceComments = marketplaceComments.filter(c => c.status === 'pending');
+  const pendingBlogComments = blogComments.filter(c => c.status === 'pending');
   
   const [actionLoading, setActionLoading] = useState<Record<string | number, boolean>>({});
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -100,22 +123,26 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
       }
 
       const rows = Array.isArray(response.data.data) ? response.data.data : [];
-      const allowedTypes = new Set(['confession', 'marketplace', 'blog_post']);
       const allComments: UnifiedComment[] = rows
-        .filter((r: any) => allowedTypes.has(r.entity_type))
-        .map((r: any) => ({
-          id: r.id,
-          content: r.content,
-          entity_type: r.entity_type,
-          entity_id: r.entity_id,
-          entity_title: r.entity_title,
-          user_id: r.user_id,
-          author_username: r.author_username,
-          author_full_name: r.author_full_name,
-          status: r.status,
-          created_at: r.created_at,
-          updated_at: r.updated_at
-        }));
+        .map((r: any) => {
+          const entityType = normalizeEntityType(r.entity_type);
+          if (!entityType) return null;
+
+          return {
+            id: r.id,
+            content: r.content,
+            entity_type: entityType,
+            entity_id: r.entity_id,
+            entity_title: r.entity_title,
+            user_id: r.user_id,
+            author_username: r.author_username,
+            author_full_name: r.author_full_name,
+            status: normalizeStatus(r.status),
+            created_at: r.created_at,
+            updated_at: r.updated_at
+          } as UnifiedComment;
+        })
+        .filter((comment: UnifiedComment | null): comment is UnifiedComment => comment !== null);
 
       // Sort by created_at descending
       allComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -315,7 +342,7 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
         )}
         
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <Card className="admin-card border-purple-200">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-purple-600">Confession Comments</CardTitle>
@@ -336,6 +363,18 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
               <div className="text-2xl font-bold">{marketplaceComments.length}</div>
               <p className="text-xs text-muted-foreground">
                 {pendingMarketplaceComments.length} pending
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="admin-card border-sky-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-sky-600">Blog Comments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{blogComments.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {pendingBlogComments.length} pending
               </p>
             </CardContent>
           </Card>
@@ -388,6 +427,33 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 View Pending Confessions
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {pendingBlogComments.length > 0 && (
+        <Card className="admin-card border-sky-300 bg-sky-50">
+          <CardHeader>
+            <CardTitle className="font-display flex items-center gap-2 text-sky-800">
+              <FileText className="h-5 w-5" />
+              Pending Blog Comments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <p className="text-sky-700">
+                There are <span className="font-bold">{pendingBlogComments.length}</span> blog comments waiting for moderation.
+              </p>
+              <Button
+                onClick={() => {
+                  setTypeFilter('blog_post');
+                  setStatusFilter('pending');
+                }}
+                className="bg-sky-600 hover:bg-sky-700"
+              >
+                View Pending Blog Comments
               </Button>
             </div>
           </CardContent>
@@ -471,7 +537,7 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
                       <div className="flex items-center gap-2 mb-2">
                         <Badge className={getEntityTypeColor(comment.entity_type)}>
                           {getEntityTypeIcon(comment.entity_type)}
-                          <span className="ml-1 capitalize">{comment.entity_type}</span>
+                          <span className="ml-1">{getEntityTypeLabel(comment.entity_type)}</span>
                         </Badge>
                         <Badge className={getStatusColor(comment.status)}>
                           {comment.status}
@@ -598,7 +664,7 @@ export function UnifiedCommentManager({ variant }: CommentManagerProps) {
               <div className="flex items-center gap-2">
                 <Badge className={getEntityTypeColor(selectedComment.entity_type)}>
                   {getEntityTypeIcon(selectedComment.entity_type)}
-                  <span className="ml-1 capitalize">{selectedComment.entity_type}</span>
+                  <span className="ml-1">{getEntityTypeLabel(selectedComment.entity_type)}</span>
                 </Badge>
                 <Badge className={getStatusColor(selectedComment.status)}>
                   {selectedComment.status}

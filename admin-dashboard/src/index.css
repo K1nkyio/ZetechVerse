@@ -7,29 +7,29 @@
 @layer base {
   :root {
     /* ZetechVerse Color System */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 36 35% 96%;
+    --foreground: 26 22% 16%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 40 38% 98%;
+    --card-foreground: 26 22% 16%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 40 38% 98%;
+    --popover-foreground: 26 22% 16%;
 
     /* Electric Blue Primary */
     --primary: 199 89% 48%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Slate */
-    --secondary: 215 25% 27%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 28 18% 30%;
+    --secondary-foreground: 40 38% 96%;
 
     /* Muted */
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 36 28% 92%;
+    --muted-foreground: 25 14% 40%;
 
     /* Coral Orange Accent */
-    --accent: 25 95% 53%;
+    --accent: 24 90% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -43,8 +43,8 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 32 24% 84%;
+    --input: 32 24% 84%;
     --ring: 199 89% 48%;
 
     --radius: 0.75rem;
@@ -57,15 +57,15 @@
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(199 89% 48%) 0%, hsl(199 89% 38%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(25 95% 53%) 0%, hsl(25 95% 43%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(24 90% 55%) 0%, hsl(24 90% 45%) 100%);
     --gradient-dark: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(40 38% 99%) 0%, hsl(36 35% 95%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(222 47% 11% / 0.1), 0 8px 10px -6px hsl(222 47% 11% / 0.1);
+    --shadow-sm: 0 1px 2px 0 hsl(28 20% 18% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(28 20% 18% / 0.1), 0 2px 4px -2px hsl(28 20% 18% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(28 20% 18% / 0.1), 0 4px 6px -4px hsl(28 20% 18% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(28 20% 18% / 0.1), 0 8px 10px -6px hsl(28 20% 18% / 0.1);
     --shadow-glow: 0 0 20px hsl(199 89% 48% / 0.3);
 
     /* Sidebar */

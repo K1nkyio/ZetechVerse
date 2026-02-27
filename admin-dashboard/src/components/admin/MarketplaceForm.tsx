@@ -219,13 +219,32 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
       console.log('🔄 Transforming marketplace form data for API submission...');
       console.log('Original form data:', formData);
 
+      const cleanedServiceDetails = isService
+        ? {
+            pricing_model: formData.service_details?.pricing_model,
+            service_area: formData.service_details?.service_area?.trim() || undefined,
+            availability: formData.service_details?.availability?.trim() || undefined,
+          }
+        : undefined;
+
+      const cleanedHostelDetails = isHostel
+        ? {
+            room_type: formData.hostel_details?.room_type,
+            beds_available: Number(formData.hostel_details?.beds_available || 0) || undefined,
+            gender_policy: formData.hostel_details?.gender_policy || undefined,
+            amenities: (formData.hostel_details?.amenities || [])
+              .map((amenity) => amenity.trim())
+              .filter(Boolean),
+          }
+        : undefined;
+
       const submitData: {
         title: string;
         description: string;
         price: number;
         category_id: number;
         listing_kind: ListingKind;
-        condition?: "new" | "used" | "refurbished" | null;
+        condition?: "new" | "used" | "refurbished";
         status?: "active" | "sold" | "inactive";
         phone?: string;
         contact_method?: "phone" | "email" | "in_app";
@@ -238,26 +257,36 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         service_details?: CreateMarketplaceListingData["service_details"] | null;
         hostel_details?: CreateMarketplaceListingData["hostel_details"] | null;
       } = {
-        title: formData.title,
-        description: formData.description,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         price: Number(formData.price),
         category_id: Number(formData.category_id),
         listing_kind: listingKind,
       };
 
       // Add optional fields only if they have values
-      submitData.condition = isProduct ? formData.condition : null;
-      submitData.service_details = isService ? formData.service_details || {} : null;
-      submitData.hostel_details = isHostel ? formData.hostel_details || {} : null;
+      if (isProduct && formData.condition) submitData.condition = formData.condition;
+      if (isService && cleanedServiceDetails && (cleanedServiceDetails.pricing_model || cleanedServiceDetails.service_area || cleanedServiceDetails.availability)) {
+        submitData.service_details = cleanedServiceDetails;
+      }
+      if (isHostel && cleanedHostelDetails && (cleanedHostelDetails.room_type || cleanedHostelDetails.beds_available || cleanedHostelDetails.gender_policy || (cleanedHostelDetails.amenities && cleanedHostelDetails.amenities.length > 0))) {
+        submitData.hostel_details = cleanedHostelDetails;
+      }
       if (formData.status) submitData.status = formData.status;
-      if (formData.phone) submitData.phone = formData.phone;
+      if (formData.phone?.trim()) submitData.phone = formData.phone.trim();
       if (formData.contact_method) submitData.contact_method = formData.contact_method;
-      if (formData.location) submitData.location = formData.location;
+      if (formData.location?.trim()) submitData.location = formData.location.trim();
       if (formData.expires_at) submitData.expires_at = new Date(formData.expires_at).toISOString();
       if (formData.is_negotiable !== undefined) submitData.is_negotiable = formData.is_negotiable;
       if (formData.urgent !== undefined) submitData.urgent = formData.urgent;
-      if (formData.tags && formData.tags.length > 0) submitData.tags = formData.tags;
-      if (formData.image_urls && formData.image_urls.length > 0) submitData.image_urls = formData.image_urls;
+      if (formData.tags && formData.tags.length > 0) {
+        const cleanedTags = formData.tags.map((tag) => tag.trim()).filter(Boolean);
+        if (cleanedTags.length > 0) submitData.tags = cleanedTags;
+      }
+      if (formData.image_urls && formData.image_urls.length > 0) {
+        const cleanedImageUrls = formData.image_urls.map((url) => url.trim()).filter(Boolean);
+        if (cleanedImageUrls.length > 0) submitData.image_urls = cleanedImageUrls;
+      }
 
       console.log('Transformed submit data:', submitData);
 
@@ -272,6 +301,15 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
       // Build detailed error message
       const apiError = error as {
         message?: string;
+        data?: {
+          message?: string;
+          errors?: Array<{
+            field?: string;
+            param?: string;
+            message?: string;
+            msg?: string;
+          }>;
+        };
         errors?: Array<{
           field?: string;
           param?: string;
@@ -280,10 +318,11 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         }>;
       };
 
-      let errorDescription = apiError.message || "Failed to save listing";
-      
-      if (apiError.errors && Array.isArray(apiError.errors) && apiError.errors.length > 0) {
-        const fieldErrors = apiError.errors
+      const responseErrors = apiError.errors || apiError.data?.errors || [];
+      let errorDescription = apiError.message || apiError.data?.message || "Failed to save listing";
+
+      if (Array.isArray(responseErrors) && responseErrors.length > 0) {
+        const fieldErrors = responseErrors
           .map((err) => {
             const field = err.field || err.param || 'unknown';
             const message = err.message || err.msg || 'Validation failed';
@@ -293,7 +332,7 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         
         if (fieldErrors) {
           errorDescription = fieldErrors;
-          console.error('Validation field errors:', apiError.errors);
+          console.error('Validation field errors:', responseErrors);
         }
       }
       

@@ -661,7 +661,7 @@ export function EventForm({ initialData, onSubmit, onCancel, isEditing }: EventF
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="website_url">Website/Registration URL</Label>
+            <Label htmlFor="website_url">Website/Registration URL (Optional)</Label>
             <Input
               id="website_url"
               type="url"
@@ -669,6 +669,7 @@ export function EventForm({ initialData, onSubmit, onCancel, isEditing }: EventF
               onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
               placeholder="https://zetech.ac.ke/events/ai-workshop"
             />
+            <p className="text-xs text-muted-foreground">Leave blank if registration is not handled via a website.</p>
           </div>
         </CardContent>
       </Card>
