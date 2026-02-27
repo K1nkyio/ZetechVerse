@@ -6,6 +6,7 @@ type PageHeaderProps = {
   icon?: ReactNode;
   actions?: ReactNode;
   centered?: boolean;
+  titleClassName?: string;
 };
 
 export const PageHeader = ({
@@ -14,6 +15,7 @@ export const PageHeader = ({
   icon,
   actions,
   centered = false,
+  titleClassName = '',
 }: PageHeaderProps) => {
   return (
     <div
@@ -25,7 +27,7 @@ export const PageHeader = ({
       >
         <div className="space-y-2">
           <h1 id="page-title" className="text-3xl md:text-4xl font-bold tracking-tight">
-            <span className="inline-flex items-center gap-2">
+            <span className={`inline-flex items-center gap-2 ${titleClassName}`}>
               {icon}
               {title}
             </span>

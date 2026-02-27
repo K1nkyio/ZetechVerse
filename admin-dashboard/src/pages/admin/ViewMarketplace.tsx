@@ -157,9 +157,32 @@ export default function AdminViewMarketplace() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Condition</p>
-                  <Badge variant="outline" className="capitalize">{listing.condition}</Badge>
+                  <p className="text-sm text-muted-foreground mb-1">Listing Type</p>
+                  <Badge variant="outline" className="capitalize">{listing.listing_kind || "product"}</Badge>
                 </div>
+
+                {listing.listing_kind === "product" && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Condition</p>
+                    <Badge variant="outline" className="capitalize">{listing.condition || "N/A"}</Badge>
+                  </div>
+                )}
+
+                {listing.listing_kind === "service" && listing.service_details?.pricing_model && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Pricing Model</p>
+                    <Badge variant="secondary" className="capitalize">
+                      {listing.service_details.pricing_model.replace("_", " ")}
+                    </Badge>
+                  </div>
+                )}
+
+                {listing.listing_kind === "hostel" && listing.hostel_details?.room_type && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Room Type</p>
+                    <Badge variant="secondary" className="capitalize">{listing.hostel_details.room_type}</Badge>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -188,6 +211,47 @@ export default function AdminViewMarketplace() {
 
                 {listing.urgent && (
                   <Badge variant="destructive">Urgent</Badge>
+                )}
+
+                {listing.listing_kind === "service" && listing.service_details?.service_area && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Service Area</p>
+                    <p className="text-foreground">{listing.service_details.service_area}</p>
+                  </div>
+                )}
+
+                {listing.listing_kind === "service" && listing.service_details?.availability && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Availability</p>
+                    <p className="text-foreground">{listing.service_details.availability}</p>
+                  </div>
+                )}
+
+                {listing.listing_kind === "hostel" && (
+                  <div className="space-y-2">
+                    {listing.hostel_details?.beds_available !== undefined && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Beds Available</p>
+                        <p className="text-foreground">{listing.hostel_details.beds_available}</p>
+                      </div>
+                    )}
+                    {listing.hostel_details?.gender_policy && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Gender Policy</p>
+                        <p className="text-foreground capitalize">{listing.hostel_details.gender_policy}</p>
+                      </div>
+                    )}
+                    {listing.hostel_details?.amenities && listing.hostel_details.amenities.length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Amenities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {listing.hostel_details.amenities.map((amenity, index) => (
+                            <Badge key={index} variant="secondary">{amenity}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -230,4 +294,3 @@ export default function AdminViewMarketplace() {
     </AdminLayout>
   );
 }
-

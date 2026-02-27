@@ -66,6 +66,24 @@ const MarketplaceDetail = () => {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const { toast } = useToast();
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
+  const listingKind = item?.listing_kind || 'product';
+  const pricingModelLabelMap: Record<string, string> = {
+    per_hour: 'Per Hour',
+    per_task_assignment: 'Per Task / Assignment',
+    subscription_package: 'Subscription / Package',
+    pay_per_consultation_meeting: 'Pay Per Consultation / Meeting',
+    freemium_addons: 'Freemium + Add-ons',
+    tiered_pricing: 'Tiered Pricing',
+    pay_what_you_want: 'Pay What You Want',
+    commission_performance_based: 'Commission / Performance-Based',
+    group_bulk_rate: 'Group / Bulk Rate',
+    one_time_flat_fee: 'One-Time Flat Fee',
+    sliding_scale_income_based: 'Sliding Scale / Income-Based',
+    retainer_monthly_contract: 'Retainer / Monthly Contract',
+    hybrid_hourly_task: 'Hybrid (Hourly + Task)',
+    trial_paid_upgrade: 'Trial + Paid Upgrade',
+    credit_token_system: 'Credit / Token System'
+  };
 
   const requireAuth = (actionText: string) => {
     const token = apiClient.getToken();
@@ -641,116 +659,200 @@ const MarketplaceDetail = () => {
               </div>
             </div>
 
-            {/* Description */}
             <div>
-              <h3 className="text-lg font-semibold mb-2">Description</h3>
-              <p className="text-muted-foreground leading-relaxed">{item.description}</p>
+              <h3 className="text-lg font-semibold mb-3">Description</h3>
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                {item.description || 'No description provided.'}
+              </p>
             </div>
 
-            {/* Comprehensive Product Details */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Product Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Basic Details */}
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Condition</span>
-                    <span className="text-sm font-medium capitalize">
-                      {item.condition?.replace('-', ' ') || 'Good'}
-                    </span>
+            <Separator />
+
+            {/* Listing-specific Details */}
+            {listingKind === 'hostel' ? (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Hostel Details</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold">Overview</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Hostel Title/Name</span>
+                        <p className="text-sm font-medium break-words">{item.title}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Rent per month</span>
+                        <p className="text-sm font-medium">
+                          {typeof item.price === 'number' ? `KSh ${item.price.toLocaleString()}` : item.price}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Listing type</span>
+                        <p className="text-sm font-medium capitalize">{listingKind}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Location</span>
+                        <p className="text-sm font-medium break-words">{item.location || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Phone number</span>
+                        <p className="text-sm font-medium break-words">{item.phone || 'N/A'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Category</span>
-                    <span className="text-sm font-medium capitalize">
-                      {item.category_name || item.category}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Location</span>
-                    <span className="text-sm font-medium">{item.location}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Negotiable</span>
-                    <span className="text-sm font-medium">
-                      {item.is_negotiable ? 'Yes' : 'No'}
-                    </span>
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold">Accommodation Setup</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Room type</span>
+                        <p className="text-sm font-medium capitalize">{item.hostel_details?.room_type || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Beds available</span>
+                        <p className="text-sm font-medium">{item.hostel_details?.beds_available ?? 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Gender Policy</span>
+                        <p className="text-sm font-medium capitalize">{item.hostel_details?.gender_policy || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-sm text-muted-foreground">Amenities</span>
+                        {item.hostel_details?.amenities && item.hostel_details.amenities.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {item.hostel_details.amenities.map((amenity: string) => (
+                              <Badge key={amenity} variant="secondary" className="text-xs">
+                                {amenity}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm font-medium">N/A</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                {/* Additional Details */}
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Posted</span>
-                    <span className="text-sm font-medium">
-                      {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recently'}
-                    </span>
+              </div>
+            ) : listingKind === 'service' ? (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Service Details</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold">Overview</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Service Name</span>
+                        <p className="text-sm font-medium break-words">{item.title}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Starting Price</span>
+                        <p className="text-sm font-medium">
+                          {typeof item.price === 'number' ? `KSh ${item.price.toLocaleString()}` : item.price}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Listing type</span>
+                        <p className="text-sm font-medium capitalize">{listingKind}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Location</span>
+                        <p className="text-sm font-medium break-words">{item.location || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Phone number</span>
+                        <p className="text-sm font-medium break-words">{item.phone || 'N/A'}</p>
+                      </div>
+                    </div>
                   </div>
-                  {item.updated_at && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Updated</span>
-                      <span className="text-sm font-medium">
-                        {new Date(item.updated_at).toLocaleDateString()}
-                      </span>
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold">Service Setup</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Pricing model</span>
+                        <p className="text-sm font-medium break-words">
+                          {pricingModelLabelMap[item.service_details?.pricing_model || ''] || item.service_details?.pricing_model || 'N/A'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Service area</span>
+                        <p className="text-sm font-medium break-words">{item.service_details?.service_area || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Availability</span>
+                        <p className="text-sm font-medium break-words">{item.service_details?.availability || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Product Details</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold">Overview</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Condition</span>
+                        <p className="text-sm font-medium capitalize">{item.condition?.replace('-', ' ') || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Category</span>
+                        <p className="text-sm font-medium capitalize break-words">{item.category_name || item.category}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Location</span>
+                        <p className="text-sm font-medium break-words">{item.location || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Negotiable</span>
+                        <p className="text-sm font-medium">{item.is_negotiable ? 'Yes' : 'No'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold">Listing Status</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <div>
+                          <Badge variant="outline" className="text-xs">
+                            {item.status && String(item.status).toLowerCase() !== 'active' ? item.status : 'Available'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Posted</span>
+                        <p className="text-sm font-medium">
+                          {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recently'}
+                        </p>
+                      </div>
+                      {item.updated_at && (
+                        <div className="space-y-1">
+                          <span className="text-sm text-muted-foreground">Updated</span>
+                          <p className="text-sm font-medium">
+                            {new Date(item.updated_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="col-span-full">
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Tags</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags.map((tag: string) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Views</span>
-                    <span className="text-sm font-medium">
-                      {typeof item.views_count === 'number' ? item.views_count : Math.floor(Math.random() * 50) + 10}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    <Badge variant="outline" className="text-xs">
-                      {item.status && String(item.status).toLowerCase() !== 'active' ? item.status : 'Available'}
-                    </Badge>
-                  </div>
                 </div>
-
-                {/* Product Variants (if available) */}
-                {item.variants && item.variants.length > 0 && (
-                  <div className="col-span-full">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Available Options</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {item.variants.map((variant: any, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {variant.name}: {variant.value}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tags */}
-                {item.tags && item.tags.length > 0 && (
-                  <div className="col-span-full">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Tags</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {item.tags.map((tag: string) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          #{tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* What's Included */}
-                {item.included_items && item.included_items.length > 0 && (
-                  <div className="col-span-full">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">What's Included</h4>
-                    <ul className="text-sm space-y-1">
-                      {item.included_items.map((item: string, index: number) => (
-                        <li key={index} className="flex items-center gap-2">
-                          <CheckCircle className="h-3 w-3 text-green-500" />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
-            </div>
+            )}
 
             {/* Enhanced Communication Section */}
             <div className="bg-muted/30 rounded-lg p-4">

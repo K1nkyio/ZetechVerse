@@ -6,12 +6,39 @@ export interface MarketplaceListing {
   description?: string;
   price: number;
   category_id?: number;
+  listing_kind?: 'product' | 'service' | 'hostel';
   location: string;
-  condition: string;
+  condition?: string | null;
   status: string;
   seller_id: number;
   image_urls?: string[];
   tags?: string[];
+  service_details?: {
+    pricing_model?:
+      | 'per_hour'
+      | 'per_task_assignment'
+      | 'subscription_package'
+      | 'pay_per_consultation_meeting'
+      | 'freemium_addons'
+      | 'tiered_pricing'
+      | 'pay_what_you_want'
+      | 'commission_performance_based'
+      | 'group_bulk_rate'
+      | 'one_time_flat_fee'
+      | 'sliding_scale_income_based'
+      | 'retainer_monthly_contract'
+      | 'hybrid_hourly_task'
+      | 'trial_paid_upgrade'
+      | 'credit_token_system';
+    service_area?: string;
+    availability?: string;
+  };
+  hostel_details?: {
+    room_type?: 'single' | 'shared' | 'studio' | 'bedsitter';
+    beds_available?: number;
+    gender_policy?: 'male' | 'female' | 'mixed';
+    amenities?: string[];
+  };
   phone?: string;
   contact_method: string;
   is_negotiable: boolean;
@@ -79,6 +106,7 @@ interface MarketplaceFilters {
   page?: number;
   limit?: number;
   category_id?: string;
+  listing_kind?: 'product' | 'service' | 'hostel';
   location?: string;
   condition?: string;
   status?: string;

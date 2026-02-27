@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,13 +34,13 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
     location: initialData?.location || "",
     type: initialData?.type || "internship",
     application_deadline: initialData?.application_deadline
-      ? new Date(initialData.application_deadline).toISOString()
+      ? new Date(initialData.application_deadline).toISOString().split("T")[0]
       : "",
     start_date: initialData?.start_date
-      ? new Date(initialData.start_date).toISOString()
+      ? new Date(initialData.start_date).toISOString().split("T")[0]
       : "",
     end_date: initialData?.end_date
-      ? new Date(initialData.end_date).toISOString()
+      ? new Date(initialData.end_date).toISOString().split("T")[0]
       : "",
     salary_min: initialData?.salary_min || undefined,
     salary_max: initialData?.salary_max || undefined,
@@ -49,6 +49,7 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
     is_remote: initialData?.is_remote ?? false,
     requirements: initialData?.requirements || [],
     benefits: initialData?.benefits || [],
+    responsibilities: initialData?.responsibilities || [],
     contact_email: initialData?.contact_email || "",
     contact_phone: initialData?.contact_phone || "",
     application_url: initialData?.application_url || "",
@@ -56,6 +57,7 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
 
   const [requirementInput, setRequirementInput] = useState("");
   const [benefitInput, setBenefitInput] = useState("");
+  const [responsibilityInput, setResponsibilityInput] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,16 +105,23 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
 
       // Add optional fields only if they have values
       if (formData.location) submitData.location = formData.location;
-      if (formData.application_deadline) submitData.application_deadline = new Date(formData.application_deadline).toISOString();
-      if (formData.start_date) submitData.start_date = new Date(formData.start_date).toISOString();
-      if (formData.end_date) submitData.end_date = new Date(formData.end_date).toISOString();
+      submitData.application_deadline = formData.application_deadline
+        ? new Date(formData.application_deadline).toISOString()
+        : null;
+      submitData.start_date = formData.start_date
+        ? new Date(formData.start_date).toISOString()
+        : null;
+      submitData.end_date = formData.end_date
+        ? new Date(formData.end_date).toISOString()
+        : null;
       if (formData.salary_min) submitData.salary_min = Number(formData.salary_min);
       if (formData.salary_max) submitData.salary_max = Number(formData.salary_max);
       if (formData.currency) submitData.currency = formData.currency;
       if (formData.is_paid !== undefined) submitData.is_paid = formData.is_paid;
       if (formData.is_remote !== undefined) submitData.is_remote = formData.is_remote;
-      if (formData.requirements && formData.requirements.length > 0) submitData.requirements = formData.requirements;
-      if (formData.benefits && formData.benefits.length > 0) submitData.benefits = formData.benefits;
+      submitData.requirements = formData.requirements || [];
+      submitData.benefits = formData.benefits || [];
+      submitData.responsibilities = formData.responsibilities || [];
       if (formData.contact_email) submitData.contact_email = formData.contact_email;
       if (formData.contact_phone) submitData.contact_phone = formData.contact_phone;
       if (formData.application_url && formData.application_url.trim()) submitData.application_url = formData.application_url.trim();
@@ -186,6 +195,23 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
     setFormData({
       ...formData,
       benefits: formData.benefits?.filter((_, i) => i !== index) || [],
+    });
+  };
+
+  const addResponsibility = () => {
+    if (responsibilityInput.trim()) {
+      setFormData({
+        ...formData,
+        responsibilities: [...(formData.responsibilities || []), responsibilityInput.trim()],
+      });
+      setResponsibilityInput("");
+    }
+  };
+
+  const removeResponsibility = (index: number) => {
+    setFormData({
+      ...formData,
+      responsibilities: formData.responsibilities?.filter((_, i) => i !== index) || [],
     });
   };
 
@@ -272,7 +298,7 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="application_deadline">Application Deadline</Label>
+              <Label htmlFor="application_deadline">Application Deadline (Optional)</Label>
               <Input
                 id="application_deadline"
                 type="date"
@@ -282,7 +308,7 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="start_date">Start Date</Label>
+              <Label htmlFor="start_date">Start Date (Optional)</Label>
               <Input
                 id="start_date"
                 type="date"
@@ -292,7 +318,7 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="end_date">End Date</Label>
+              <Label htmlFor="end_date">End Date (Optional)</Label>
               <Input
                 id="end_date"
                 type="date"
@@ -451,6 +477,45 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
         </CardContent>
       </Card>
 
+      {/* Responsibilities */}
+      <Card className="admin-card">
+        <CardHeader>
+          <CardTitle>Responsibilities</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              value={responsibilityInput}
+              onChange={(e) => setResponsibilityInput(e.target.value)}
+              placeholder="Add a responsibility..."
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addResponsibility();
+                }
+              }}
+            />
+            <Button type="button" onClick={addResponsibility} variant="outline">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {formData.responsibilities?.map((responsibility, index) => (
+              <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                {responsibility}
+                <button
+                  type="button"
+                  onClick={() => removeResponsibility(index)}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Contact Information */}
       <Card className="admin-card">
         <CardHeader>
@@ -508,4 +573,3 @@ export function OpportunityForm({ initialData, onSubmit, onCancel, isEditing }: 
     </form>
   );
 }
-

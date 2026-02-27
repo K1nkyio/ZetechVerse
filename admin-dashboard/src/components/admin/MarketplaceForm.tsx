@@ -17,6 +17,42 @@ import { X, Plus, Save, Upload, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { marketplaceApi, type CreateMarketplaceListingData, type MarketplaceListing } from "@/api/marketplace.api";
 
+type ListingKind = "product" | "service" | "hostel";
+type ServicePricingModel = NonNullable<NonNullable<CreateMarketplaceListingData["service_details"]>["pricing_model"]>;
+
+const servicePricingModelOptions: Array<{ value: ServicePricingModel; label: string }> = [
+  { value: "per_hour", label: "Per Hour" },
+  { value: "per_task_assignment", label: "Per Task / Assignment" },
+  { value: "subscription_package", label: "Subscription / Package" },
+  { value: "pay_per_consultation_meeting", label: "Pay Per Consultation / Meeting" },
+  { value: "freemium_addons", label: "Freemium + Add-ons" },
+  { value: "tiered_pricing", label: "Tiered Pricing" },
+  { value: "pay_what_you_want", label: "Pay What You Want" },
+  { value: "commission_performance_based", label: "Commission / Performance-Based" },
+  { value: "group_bulk_rate", label: "Group / Bulk Rate" },
+  { value: "one_time_flat_fee", label: "One-Time Flat Fee" },
+  { value: "sliding_scale_income_based", label: "Sliding Scale / Income-Based" },
+  { value: "retainer_monthly_contract", label: "Retainer / Monthly Contract" },
+  { value: "hybrid_hourly_task", label: "Hybrid (Hourly + Task)" },
+  { value: "trial_paid_upgrade", label: "Trial + Paid Upgrade" },
+  { value: "credit_token_system", label: "Credit / Token System" }
+];
+
+const inferListingKindFromCategory = (
+  categories: Array<{ id: number; name: string; slug: string }>,
+  categoryId?: number
+): ListingKind => {
+  if (!categoryId) return "product";
+
+  const category = categories.find((item) => item.id === categoryId);
+  if (!category) return "product";
+
+  const text = `${category.name} ${category.slug}`.toLowerCase();
+  if (text.includes("service")) return "service";
+  if (text.includes("hostel")) return "hostel";
+  return "product";
+};
+
 interface MarketplaceFormProps {
   initialData?: MarketplaceListing;
   onSubmit: (data: CreateMarketplaceListingData) => Promise<void>;
@@ -36,19 +72,28 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
     description: initialData?.description || "",
     price: initialData?.price || 0,
     category_id: initialData?.category_id,
+    listing_kind: initialData?.listing_kind || "product",
     location: initialData?.location || "",
     condition: initialData?.condition || "used",
+    service_details: initialData?.service_details || {},
+    hostel_details: initialData?.hostel_details || {},
     phone: initialData?.phone || "",
     image_urls: initialData?.image_urls || [],
     tags: initialData?.tags || [],
     contact_method: initialData?.contact_method || "in_app",
     is_negotiable: initialData?.is_negotiable ?? false,
     urgent: initialData?.urgent ?? false,
-    expires_at: initialData?.expires_at ? new Date(initialData.expires_at).toISOString() : "",
+    expires_at: initialData?.expires_at ? new Date(initialData.expires_at).toISOString().split("T")[0] : "",
   });
 
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [amenityInput, setAmenityInput] = useState("");
+
+  const listingKind: ListingKind = (formData.listing_kind || "product") as ListingKind;
+  const isProduct = listingKind === "product";
+  const isService = listingKind === "service";
+  const isHostel = listingKind === "hostel";
 
   useEffect(() => {
     let mounted = true;
@@ -59,6 +104,17 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         const data = await marketplaceApi.getCategories();
         if (mounted) {
           setCategories(Array.isArray(data) ? data : []);
+          setFormData((prev) => {
+            if (!prev.category_id || initialData?.listing_kind) return prev;
+
+            const inferredKind = inferListingKindFromCategory(Array.isArray(data) ? data : [], prev.category_id);
+            if (prev.listing_kind === inferredKind) return prev;
+
+            return {
+              ...prev,
+              listing_kind: inferredKind,
+            };
+          });
         }
       } catch (error) {
         console.error("Failed to fetch marketplace categories:", error);
@@ -78,7 +134,7 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
     return () => {
       mounted = false;
     };
-  }, [toast]);
+  }, [toast, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +175,43 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
       return;
     }
 
+    if (isProduct && !formData.condition) {
+      toast({
+        title: "Validation Error",
+        description: "Please select product condition",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isService) {
+      const serviceArea = formData.service_details?.service_area?.trim();
+      const pricingModel = formData.service_details?.pricing_model;
+
+      if (!serviceArea || !pricingModel) {
+        toast({
+          title: "Validation Error",
+          description: "Service listings need service area and pricing model",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (isHostel) {
+      const roomType = formData.hostel_details?.room_type;
+      const bedsAvailable = Number(formData.hostel_details?.beds_available || 0);
+
+      if (!roomType || !bedsAvailable || bedsAvailable < 1) {
+        toast({
+          title: "Validation Error",
+          description: "Hostel listings need room type and available beds",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -126,15 +219,36 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
       console.log('🔄 Transforming marketplace form data for API submission...');
       console.log('Original form data:', formData);
 
-      let submitData: any = {
+      const submitData: {
+        title: string;
+        description: string;
+        price: number;
+        category_id: number;
+        listing_kind: ListingKind;
+        condition?: "new" | "used" | "refurbished" | null;
+        status?: "active" | "sold" | "inactive";
+        phone?: string;
+        contact_method?: "phone" | "email" | "in_app";
+        location?: string;
+        expires_at?: string;
+        is_negotiable?: boolean;
+        urgent?: boolean;
+        tags?: string[];
+        image_urls?: string[];
+        service_details?: CreateMarketplaceListingData["service_details"] | null;
+        hostel_details?: CreateMarketplaceListingData["hostel_details"] | null;
+      } = {
         title: formData.title,
         description: formData.description,
         price: Number(formData.price),
         category_id: Number(formData.category_id),
+        listing_kind: listingKind,
       };
 
       // Add optional fields only if they have values
-      if (formData.condition) submitData.condition = formData.condition;
+      submitData.condition = isProduct ? formData.condition : null;
+      submitData.service_details = isService ? formData.service_details || {} : null;
+      submitData.hostel_details = isHostel ? formData.hostel_details || {} : null;
       if (formData.status) submitData.status = formData.status;
       if (formData.phone) submitData.phone = formData.phone;
       if (formData.contact_method) submitData.contact_method = formData.contact_method;
@@ -152,15 +266,25 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         title: "Success",
         description: isEditing ? "Listing updated successfully" : "Listing created successfully",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('MarketplaceForm error:', error);
       
       // Build detailed error message
-      let errorDescription = error.message || "Failed to save listing";
+      const apiError = error as {
+        message?: string;
+        errors?: Array<{
+          field?: string;
+          param?: string;
+          message?: string;
+          msg?: string;
+        }>;
+      };
+
+      let errorDescription = apiError.message || "Failed to save listing";
       
-      if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
-        const fieldErrors = error.errors
-          .map((err: any) => {
+      if (apiError.errors && Array.isArray(apiError.errors) && apiError.errors.length > 0) {
+        const fieldErrors = apiError.errors
+          .map((err) => {
             const field = err.field || err.param || 'unknown';
             const message = err.message || err.msg || 'Validation failed';
             return `${field}: ${message}`;
@@ -169,7 +293,7 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         
         if (fieldErrors) {
           errorDescription = fieldErrors;
-          console.error('Validation field errors:', error.errors);
+          console.error('Validation field errors:', apiError.errors);
         }
       }
       
@@ -271,6 +395,29 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
     });
   };
 
+  const addAmenity = () => {
+    if (!amenityInput.trim()) return;
+
+    setFormData({
+      ...formData,
+      hostel_details: {
+        ...(formData.hostel_details || {}),
+        amenities: [...(formData.hostel_details?.amenities || []), amenityInput.trim()],
+      },
+    });
+    setAmenityInput("");
+  };
+
+  const removeAmenity = (index: number) => {
+    setFormData({
+      ...formData,
+      hostel_details: {
+        ...(formData.hostel_details || {}),
+        amenities: (formData.hostel_details?.amenities || []).filter((_, i) => i !== index),
+      },
+    });
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Basic Information */}
@@ -304,7 +451,9 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="price">Price (KES) *</Label>
+              <Label htmlFor="price">
+                {isHostel ? "Rent Per Month (KES) *" : isService ? "Starting Price (KES) *" : "Price (KES) *"}
+              </Label>
               <Input
                 id="price"
                 type="number"
@@ -318,12 +467,36 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="listing_kind">Listing Type *</Label>
+              <Select
+                value={listingKind}
+                onValueChange={(value: ListingKind) => setFormData({ ...formData, listing_kind: value })}
+              >
+                <SelectTrigger id="listing_kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="product">Product</SelectItem>
+                  <SelectItem value="service">Service</SelectItem>
+                  <SelectItem value="hostel">Hostel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="category_id">Category *</Label>
               <Select
                 value={formData.category_id ? String(formData.category_id) : ""}
-                onValueChange={(value) => setFormData({ ...formData, category_id: Number(value) })}
+                onValueChange={(value) => {
+                  const categoryId = Number(value);
+                  setFormData({
+                    ...formData,
+                    category_id: categoryId,
+                    listing_kind: inferListingKindFromCategory(categories, categoryId),
+                  });
+                }}
               >
                 <SelectTrigger id="category_id">
                   <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select category"} />
@@ -367,28 +540,30 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="condition">Condition</Label>
-              <Select
-                value={formData.condition}
-                onValueChange={(value: any) => setFormData({ ...formData, condition: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="used">Used</SelectItem>
-                  <SelectItem value="refurbished">Refurbished</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {isProduct && (
+              <div className="space-y-2">
+                <Label htmlFor="condition">Condition *</Label>
+                <Select
+                  value={formData.condition || "used"}
+                  onValueChange={(value: "new" | "used" | "refurbished") => setFormData({ ...formData, condition: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="used">Used</SelectItem>
+                    <SelectItem value="refurbished">Refurbished</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="contact_method">Contact Method</Label>
               <Select
                 value={formData.contact_method}
-                onValueChange={(value: any) => setFormData({ ...formData, contact_method: value })}
+                onValueChange={(value: "phone" | "email" | "in_app") => setFormData({ ...formData, contact_method: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -404,10 +579,200 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         </CardContent>
       </Card>
 
+      {isService && (
+        <Card className="admin-card">
+          <CardHeader>
+            <CardTitle>Service Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="service_pricing_model">Pricing Model *</Label>
+                <Select
+                  value={formData.service_details?.pricing_model || ""}
+                  onValueChange={(value: ServicePricingModel) =>
+                    setFormData({
+                      ...formData,
+                      service_details: {
+                        ...(formData.service_details || {}),
+                        pricing_model: value,
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger id="service_pricing_model">
+                    <SelectValue placeholder="Select pricing model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {servicePricingModelOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="service_area">Service Area *</Label>
+                <Input
+                  id="service_area"
+                  value={formData.service_details?.service_area || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      service_details: {
+                        ...(formData.service_details || {}),
+                        service_area: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="e.g., Nairobi CBD, Online, All campuses"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="service_availability">Availability</Label>
+              <Input
+                id="service_availability"
+                value={formData.service_details?.availability || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    service_details: {
+                      ...(formData.service_details || {}),
+                      availability: e.target.value,
+                    },
+                  })
+                }
+                placeholder="e.g., Mon-Fri 8AM-6PM"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isHostel && (
+        <Card className="admin-card">
+          <CardHeader>
+            <CardTitle>Hostel Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="hostel_room_type">Room Type *</Label>
+                <Select
+                  value={formData.hostel_details?.room_type || ""}
+                  onValueChange={(value: "single" | "shared" | "studio" | "bedsitter") =>
+                    setFormData({
+                      ...formData,
+                      hostel_details: {
+                        ...(formData.hostel_details || {}),
+                        room_type: value,
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger id="hostel_room_type">
+                    <SelectValue placeholder="Select room type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single Room</SelectItem>
+                    <SelectItem value="shared">Shared Room</SelectItem>
+                    <SelectItem value="studio">Studio</SelectItem>
+                    <SelectItem value="bedsitter">Bedsitter</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="hostel_beds_available">Beds Available *</Label>
+                <Input
+                  id="hostel_beds_available"
+                  type="number"
+                  min="1"
+                  value={formData.hostel_details?.beds_available || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      hostel_details: {
+                        ...(formData.hostel_details || {}),
+                        beds_available: Number(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  placeholder="e.g., 2"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="hostel_gender_policy">Gender Policy</Label>
+                <Select
+                  value={formData.hostel_details?.gender_policy || ""}
+                  onValueChange={(value: "male" | "female" | "mixed") =>
+                    setFormData({
+                      ...formData,
+                      hostel_details: {
+                        ...(formData.hostel_details || {}),
+                        gender_policy: value,
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger id="hostel_gender_policy">
+                    <SelectValue placeholder="Select policy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male Only</SelectItem>
+                    <SelectItem value="female">Female Only</SelectItem>
+                    <SelectItem value="mixed">Mixed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Add Amenities</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={amenityInput}
+                  onChange={(e) => setAmenityInput(e.target.value)}
+                  placeholder="e.g., Wi-Fi, Laundry, Security"
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addAmenity();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={addAmenity} variant="outline">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(formData.hostel_details?.amenities || []).map((amenity, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                    {amenity}
+                    <button
+                      type="button"
+                      onClick={() => removeAmenity(index)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Images */}
       <Card className="admin-card">
         <CardHeader>
-          <CardTitle>Product Images</CardTitle>
+          <CardTitle>{isProduct ? "Product Images" : "Listing Images"}</CardTitle>
           <p className="text-sm text-muted-foreground">Add images by URL or drag and drop files</p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -543,7 +908,9 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
               checked={formData.is_negotiable}
               onCheckedChange={(checked) => setFormData({ ...formData, is_negotiable: checked })}
             />
-            <Label htmlFor="is_negotiable">Price is negotiable</Label>
+            <Label htmlFor="is_negotiable">
+              {isService ? "Rate is negotiable" : isHostel ? "Rent is negotiable" : "Price is negotiable"}
+            </Label>
           </div>
 
           <div className="flex items-center space-x-2">

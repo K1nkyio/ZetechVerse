@@ -83,7 +83,7 @@ export default function AdminEditMarketplace() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Edit Marketplace Listing</h1>
-          <p className="text-muted-foreground">Update listing details</p>
+          <p className="text-muted-foreground">Update product, service, or hostel advertisement details</p>
         </div>
 
         <MarketplaceForm
@@ -96,4 +96,3 @@ export default function AdminEditMarketplace() {
     </AdminLayout>
   );
 }
-

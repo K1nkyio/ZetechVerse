@@ -55,18 +55,12 @@ const categories = [
   { id: 'books', name: 'Books', icon: BookOpen },
   { id: 'services', name: 'Services', icon: Code },
   { id: 'hostels', name: 'Hostels', icon: Home },
-  { id: 'clothing', name: 'Clothing', icon: Shirt },
-  { id: 'footwear', name: 'Footwear', icon: Package },
-
 ];
 
 const conditions = [
   { id: 'new', label: 'New' },
+  { id: 'used', label: 'Used' },
   { id: 'refurbished', label: 'Refurbished' },
-  { id: 'excellent', label: 'Excellent' },
-  { id: 'good', label: 'Good' },
-  { id: 'fair', label: 'Fair' },
-  { id: 'poor', label: 'Poor' }
 ];
 
 const campusLocations = [
@@ -100,6 +94,7 @@ const Marketplace = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeCategory = searchParams.get('category') || 'all';
+  const isServiceOrHostelCategory = activeCategory === 'services' || activeCategory === 'hostels';
   const { toast } = useToast();
 
   // Enhanced filtering state
@@ -129,6 +124,12 @@ const Marketplace = () => {
     setStored('zv:market:locations', selectedLocations);
     setStored('zv:market:sort', sortBy);
   }, [searchQuery, selectedConditions, selectedLocations, sortBy]);
+
+  useEffect(() => {
+    if (isServiceOrHostelCategory && selectedConditions.length > 0) {
+      setSelectedConditions([]);
+    }
+  }, [isServiceOrHostelCategory, selectedConditions]);
 
   const fetchListings = async () => {
     try {
@@ -167,6 +168,7 @@ const Marketplace = () => {
     // Safe null checks for all listing properties
     const listingCategoryName = listing.category_name || '';
     const listingCategorySlug = listing.category_slug || (listingCategoryName ? listingCategoryName.toLowerCase().replace(/\s+/g, '-') : '');
+    const listingKind = String(listing.listing_kind || 'product').toLowerCase();
     const listingCondition = listing.condition || '';
     const listingLocation = listing.location || '';
     const listingTitle = listing.title || '';
@@ -174,16 +176,29 @@ const Marketplace = () => {
     const listingTags = Array.isArray(listing.tags) ? listing.tags : [];
     const listingPrice = typeof listing.price === 'number' ? listing.price : 0;
     
-    const matchesCategory = activeCategory === 'all' ||
-      listingCategoryName.toLowerCase() === activeCategory.toLowerCase() ||
-      listingCategorySlug.toLowerCase() === activeCategory.toLowerCase();
+    const normalizedActiveCategory = activeCategory.toLowerCase();
+    const matchesCategory = (() => {
+      if (normalizedActiveCategory === 'all') return true;
+      if (normalizedActiveCategory === 'services') {
+        return listingKind === 'service' || listingCategoryName.toLowerCase().includes('service') || listingCategorySlug.toLowerCase().includes('service');
+      }
+      if (normalizedActiveCategory === 'hostels') {
+        return listingKind === 'hostel' || listingCategoryName.toLowerCase().includes('hostel') || listingCategorySlug.toLowerCase().includes('hostel');
+      }
+
+      return (
+        (listingKind === 'product' || !listing.listing_kind) &&
+        (listingCategoryName.toLowerCase() === normalizedActiveCategory || listingCategorySlug.toLowerCase() === normalizedActiveCategory)
+      );
+    })();
     const matchesSearch = !searchQuery ||
       listingTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
       listingDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
       listingTags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesCondition = selectedConditions.length === 0 ||
-      selectedConditions.includes(listingCondition);
+    const shouldApplyConditionFilter = selectedConditions.length > 0 && !isServiceOrHostelCategory;
+    const matchesCondition = !shouldApplyConditionFilter ||
+      (listingKind === 'product' && selectedConditions.includes(listingCondition));
 
     const matchesLocation = selectedLocations.length === 0 ||
       selectedLocations.some(loc => listingLocation.toLowerCase().includes(loc.toLowerCase()));
@@ -205,25 +220,33 @@ const Marketplace = () => {
       case 'price-high':
         return b.price - a.price;
       case 'relevance':
-        // Simple relevance scoring based on search match quality
-        const aScore = searchQuery ? (
-          a.title.toLowerCase().includes(searchQuery.toLowerCase()) ? 3 : 0 +
-          a.description?.toLowerCase().includes(searchQuery.toLowerCase()) ? 2 : 0 +
-          a.tags?.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase())) ? 1 : 0
-        ) : 0;
-        const bScore = searchQuery ? (
-          b.title.toLowerCase().includes(searchQuery.toLowerCase()) ? 3 : 0 +
-          b.description?.toLowerCase().includes(searchQuery.toLowerCase()) ? 2 : 0 +
-          b.tags?.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase())) ? 1 : 0
-        ) : 0;
-        return bScore - aScore;
+        {
+          // Simple relevance scoring based on search match quality
+          const score = (listing: any) => {
+            if (!searchQuery) return 0;
+
+            let currentScore = 0;
+            const query = searchQuery.toLowerCase();
+
+            if (String(listing.title || '').toLowerCase().includes(query)) currentScore += 3;
+            if (String(listing.description || '').toLowerCase().includes(query)) currentScore += 2;
+            if (Array.isArray(listing.tags) && listing.tags.some((tag: string) => tag.toLowerCase().includes(query))) {
+              currentScore += 1;
+            }
+            return currentScore;
+          };
+
+          return score(b) - score(a);
+        }
       case 'distance':
-        // For now, prioritize campus locations, but this could be enhanced with GPS
-        const campusPriority = ['Main Campus', 'Engineering Block', 'Library Area', 'Business School'];
-        const aPriority = campusPriority.includes(a.location) ? 1 : 0;
-        const bPriority = campusPriority.includes(b.location) ? 1 : 0;
-        if (aPriority !== bPriority) return bPriority - aPriority;
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        {
+          // For now, prioritize campus locations, but this could be enhanced with GPS
+          const campusPriority = ['Main Campus', 'Engineering Block', 'Library Area', 'Business School'];
+          const aPriority = campusPriority.includes(a.location) ? 1 : 0;
+          const bPriority = campusPriority.includes(b.location) ? 1 : 0;
+          if (aPriority !== bPriority) return bPriority - aPriority;
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        }
       default:
         return 0;
     }
@@ -248,6 +271,9 @@ const Marketplace = () => {
       next.set('category', category);
     }
     setSearchParams(next);
+    if (category === 'services' || category === 'hostels') {
+      setSelectedConditions([]);
+    }
     trackEvent('marketplace_filter_category', { category });
   };
 
@@ -301,7 +327,8 @@ const Marketplace = () => {
     navigate('/checkout');
   };
 
-  const activeFiltersCount = selectedConditions.length + selectedLocations.length +
+  const activeConditionCount = isServiceOrHostelCategory ? 0 : selectedConditions.length;
+  const activeFiltersCount = activeConditionCount + selectedLocations.length +
     (priceRange[0] > 0 || priceRange[1] < maxPrice ? 1 : 0);
 
   return (
@@ -310,6 +337,7 @@ const Marketplace = () => {
       <main className="container mx-auto px-4 py-8">
         <PageHeader
           title="Campus Marketplace"
+          titleClassName="whitespace-nowrap text-2xl sm:text-3xl md:text-4xl"
           centered
           icon={<ShoppingCart className="h-6 w-6 text-primary" aria-hidden="true" />}
           description="Buy, sell, and trade with fellow Zetech students. Find great deals on electronics, books, fashion, services, and accommodation."
@@ -400,25 +428,27 @@ const Marketplace = () => {
                   </div>
 
                   {/* Condition */}
-                  <div>
-                    <h4 className="font-medium mb-3">Condition</h4>
-                    <div className="space-y-2">
-                      {conditions.map((condition) => (
-                        <div key={condition.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={condition.id}
-                            checked={selectedConditions.includes(condition.id)}
-                            onCheckedChange={(checked) =>
-                              handleConditionChange(condition.id, checked as boolean)
-                            }
-                          />
-                          <label htmlFor={condition.id} className="text-sm">
-                            {condition.label}
-                          </label>
-                        </div>
-                      ))}
+                  {!isServiceOrHostelCategory && (
+                    <div>
+                      <h4 className="font-medium mb-3">Condition</h4>
+                      <div className="space-y-2">
+                        {conditions.map((condition) => (
+                          <div key={condition.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={condition.id}
+                              checked={selectedConditions.includes(condition.id)}
+                              onCheckedChange={(checked) =>
+                                handleConditionChange(condition.id, checked as boolean)
+                              }
+                            />
+                            <label htmlFor={condition.id} className="text-sm">
+                              {condition.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Location */}
                   <div>
@@ -513,25 +543,27 @@ const Marketplace = () => {
                   </div>
 
                   {/* Condition */}
-                  <div>
-                    <h4 className="font-medium mb-3">Condition</h4>
-                    <div className="space-y-2">
-                      {conditions.map((condition) => (
-                        <div key={condition.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={condition.id}
-                            checked={selectedConditions.includes(condition.id)}
-                            onCheckedChange={(checked) =>
-                              handleConditionChange(condition.id, checked as boolean)
-                            }
-                          />
-                          <label htmlFor={condition.id} className="text-sm">
-                            {condition.label}
-                          </label>
-                        </div>
-                      ))}
+                  {!isServiceOrHostelCategory && (
+                    <div>
+                      <h4 className="font-medium mb-3">Condition</h4>
+                      <div className="space-y-2">
+                        {conditions.map((condition) => (
+                          <div key={condition.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={condition.id}
+                              checked={selectedConditions.includes(condition.id)}
+                              onCheckedChange={(checked) =>
+                                handleConditionChange(condition.id, checked as boolean)
+                              }
+                            />
+                            <label htmlFor={condition.id} className="text-sm">
+                              {condition.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Location */}
                   <div>
@@ -603,7 +635,7 @@ const Marketplace = () => {
             {/* Active Filters Display */}
             {activeFiltersCount > 0 && (
               <div className="flex flex-wrap gap-2">
-                {selectedConditions.map((condition) => (
+                {!isServiceOrHostelCategory && selectedConditions.map((condition) => (
                   <Badge key={condition} variant="secondary" className="gap-1">
                     {conditions.find(c => c.id === condition)?.label}
                     <X
@@ -621,7 +653,7 @@ const Marketplace = () => {
                     />
                   </Badge>
                 ))}
-                {(priceRange[0] > 0 || priceRange[1] < 50000) && (
+                {(priceRange[0] > 0 || priceRange[1] < maxPrice) && (
                   <Badge variant="secondary" className="gap-1">
                     KES {priceRange[0].toLocaleString()} - {priceRange[1].toLocaleString()}
                     <X
@@ -703,10 +735,12 @@ const Marketplace = () => {
 
                     {/* Condition Badge */}
                     <Badge
-                      variant={listing.condition === 'new' ? 'default' : 'secondary'}
+                      variant={(listing.listing_kind || 'product') === 'product' && listing.condition === 'new' ? 'default' : 'secondary'}
                       className="absolute top-2 sm:top-3 left-2 sm:left-3 capitalize text-xs"
                     >
-                      {listing.condition?.replace('-', ' ') || 'Available'}
+                      {(listing.listing_kind || 'product') === 'product'
+                        ? (listing.condition?.replace('-', ' ') || 'Available')
+                        : String(listing.listing_kind || 'listing')}
                   </Badge>
                     {listing.status && String(listing.status).toLowerCase() !== 'active' && (
                       <Badge
@@ -756,7 +790,7 @@ const Marketplace = () => {
                           {listing.seller_full_name || listing.seller_username || 'Seller'}
                         </span>
                         {/* Rating information is not always available in the API response */}
-                        {false && listing.seller_rating && (
+                        {listing.seller_rating && (
                           <>
                             <CheckCircle className="h-3 w-3 text-green-500" />
                             <div className="flex items-center gap-1">

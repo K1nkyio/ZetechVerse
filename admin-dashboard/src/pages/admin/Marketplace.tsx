@@ -139,9 +139,18 @@ export default function AdminMarketplace() {
         <div className="max-w-xs">
           <p className="font-medium text-foreground truncate">{listing.title}</p>
           <p className="text-xs text-muted-foreground">
-            {listing.seller_full_name} • {listing.views_count} views
+            {(listing.listing_kind || "product")} | {listing.seller_full_name} | {listing.views_count} views
           </p>
         </div>
+      ),
+    },
+    {
+      key: "listing_kind",
+      header: "Type",
+      render: (listing) => (
+        <Badge variant="outline" className="capitalize">
+          {listing.listing_kind || "product"}
+        </Badge>
       ),
     },
     {
@@ -162,7 +171,7 @@ export default function AdminMarketplace() {
       header: "Condition",
       render: (listing) => (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary capitalize">
-          {listing.condition}
+          {listing.listing_kind === "product" ? (listing.condition || "N/A") : "N/A"}
         </span>
       ),
     },
@@ -241,7 +250,7 @@ export default function AdminMarketplace() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold font-display text-foreground">Marketplace</h1>
-            <p className="text-muted-foreground">Manage marketplace listings</p>
+            <p className="text-muted-foreground">Manage product, service, and hostel listings</p>
           </div>
           <Button
             onClick={() => navigate("/admin/marketplace/create")}
@@ -341,4 +350,5 @@ export default function AdminMarketplace() {
     </AdminLayout>
   );
 }
+
 

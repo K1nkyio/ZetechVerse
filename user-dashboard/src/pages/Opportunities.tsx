@@ -333,10 +333,14 @@ const Opportunities = () => {
                     </span>
                       )}
                       {opp.days_until_deadline !== undefined && (
-                        <span className={`flex items-center gap-1 ${opp.days_until_deadline <= 7 && opp.days_until_deadline > 0 ? 'text-destructive' : ''}`}>
-                      <Clock className="h-4 w-4" />
-                          {opp.days_until_deadline > 0 ? `${opp.days_until_deadline} days left` : 'Expired'}
-                    </span>
+                        <span className={`flex items-center gap-1 ${typeof opp.days_until_deadline === 'number' && opp.days_until_deadline <= 7 && opp.days_until_deadline > 0 ? 'text-destructive' : ''}`}>
+                          <Clock className="h-4 w-4" />
+                          {typeof opp.days_until_deadline !== 'number'
+                            ? 'N/A'
+                            : opp.days_until_deadline > 0
+                            ? `${opp.days_until_deadline} days left`
+                            : 'Expired'}
+                        </span>
                       )}
                   </div>
 

@@ -86,12 +86,15 @@ CREATE TABLE marketplace_listings (
     description TEXT,
     price DECIMAL(12,2) NOT NULL,
     category_id INTEGER,
+    listing_kind VARCHAR(20) DEFAULT 'product' CHECK (listing_kind IN ('product', 'service', 'hostel')),
     location VARCHAR(255),
     condition VARCHAR(20) DEFAULT 'used' CHECK (condition IN ('new', 'used', 'refurbished')),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'sold', 'inactive')),
     seller_id INTEGER NOT NULL,
     image_urls TEXT, -- JSON array of image URLs
     tags TEXT, -- JSON array of tags
+    service_details TEXT, -- JSON object for service-specific fields
+    hostel_details TEXT, -- JSON object for hostel-specific fields
     phone VARCHAR(20),
     contact_method VARCHAR(20) DEFAULT 'in_app' CHECK (contact_method IN ('phone', 'email', 'in_app')),
     is_negotiable BOOLEAN DEFAULT false,
@@ -128,6 +131,7 @@ CREATE TABLE opportunities (
     is_remote BOOLEAN DEFAULT false,
     requirements TEXT, -- JSON array of requirements
     benefits TEXT, -- JSON array of benefits
+    responsibilities TEXT, -- JSON array of responsibilities
     contact_email VARCHAR(255),
     contact_phone VARCHAR(20),
     application_url VARCHAR(500),

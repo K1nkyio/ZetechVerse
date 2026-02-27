@@ -37,15 +37,15 @@ const opportunityValidation = [
     .isIn(['internship', 'attachment', 'job', 'scholarship', 'volunteer'])
     .withMessage('Invalid opportunity type'),
   body('application_deadline')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Invalid date format for application deadline'),
   body('start_date')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Invalid date format for start date'),
   body('end_date')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Invalid date format for end date'),
   body('salary_min')
@@ -86,7 +86,11 @@ const opportunityValidation = [
         throw new Error('Invalid URL format for application link');
       }
       return true;
-    })
+    }),
+  body('responsibilities')
+    .optional({ nullable: true })
+    .isArray()
+    .withMessage('Responsibilities must be an array')
 ];
 
 // Routes

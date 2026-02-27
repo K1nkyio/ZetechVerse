@@ -49,6 +49,7 @@ const getListings = async (req, res) => {
       page: parseInt(req.query.page) || 1,
       limit: parseInt(req.query.limit) || 10,
       category_id: req.query.category_id,
+      listing_kind: req.query.listing_kind,
       location: req.query.location,
       condition: req.query.condition,
       status: req.query.status || 'active',
@@ -168,11 +169,22 @@ const createListing = async (req, res) => {
     
     const listingData = {
       ...safeBody,
+      listing_kind: safeBody.listing_kind || 'product',
       seller_id: req.user.id,
       status: req.body.status || 'active',
       image_urls: req.body.image_urls || [],
-      tags: req.body.tags || []
+      tags: req.body.tags || [],
+      service_details: req.body.service_details && typeof req.body.service_details === 'object'
+        ? req.body.service_details
+        : {},
+      hostel_details: req.body.hostel_details && typeof req.body.hostel_details === 'object'
+        ? req.body.hostel_details
+        : {}
     };
+
+    if (listingData.listing_kind !== 'product' && !('condition' in safeBody)) {
+      listingData.condition = null;
+    }
 
     const listingId = await MarketplaceListing.create(listingData);
 
@@ -259,8 +271,33 @@ const updateListing = async (req, res) => {
 
     // Prevent users from changing the seller_id
     const { seller_id, ...updateData } = req.body;
-    
-    await MarketplaceListing.update(id, updateData);
+    const normalizedUpdateData = { ...updateData };
+
+    if (
+      normalizedUpdateData.listing_kind &&
+      normalizedUpdateData.listing_kind !== 'product' &&
+      normalizedUpdateData.condition === undefined
+    ) {
+      normalizedUpdateData.condition = null;
+    }
+
+    if (
+      normalizedUpdateData.service_details !== undefined &&
+      normalizedUpdateData.service_details !== null &&
+      typeof normalizedUpdateData.service_details !== 'object'
+    ) {
+      normalizedUpdateData.service_details = {};
+    }
+
+    if (
+      normalizedUpdateData.hostel_details !== undefined &&
+      normalizedUpdateData.hostel_details !== null &&
+      typeof normalizedUpdateData.hostel_details !== 'object'
+    ) {
+      normalizedUpdateData.hostel_details = {};
+    }
+
+    await MarketplaceListing.update(id, normalizedUpdateData);
 
     res.json({
       success: true,

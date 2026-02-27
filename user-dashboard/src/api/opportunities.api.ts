@@ -21,6 +21,7 @@ export interface Opportunity {
   is_remote: boolean;
   requirements: string[];
   benefits: string[];
+  responsibilities: string[];
   contact_email?: string;
   contact_phone?: string;
   application_url?: string;

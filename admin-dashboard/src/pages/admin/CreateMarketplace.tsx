@@ -35,7 +35,7 @@ export default function AdminCreateMarketplace() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Create New Marketplace Listing</h1>
-          <p className="text-muted-foreground">Add a new item to the marketplace</p>
+          <p className="text-muted-foreground">Add a product, service, or hostel advertisement</p>
         </div>
 
         <MarketplaceForm
@@ -46,4 +46,3 @@ export default function AdminCreateMarketplace() {
     </AdminLayout>
   );
 }
-

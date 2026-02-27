@@ -125,6 +125,17 @@ export default function AdminViewOpportunity() {
                     </div>
                   </div>
                 )}
+
+                {opportunity.responsibilities && opportunity.responsibilities.length > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Responsibilities</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {opportunity.responsibilities.map((responsibility, index) => (
+                        <li key={index} className="text-foreground">{responsibility}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -249,4 +260,3 @@ export default function AdminViewOpportunity() {
     </AdminLayout>
   );
 }
-

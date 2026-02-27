@@ -159,9 +159,9 @@ const OpportunityDetail = () => {
             {opportunity.requirements && opportunity.requirements.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Requirements</h3>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-sm text-muted-foreground">
                   {opportunity.requirements.map((req, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
+                    <li key={index} className="flex items-start gap-2">
                       <span className="text-primary mt-1">•</span>
                       <span>{req}</span>
                     </li>
@@ -174,11 +174,25 @@ const OpportunityDetail = () => {
             {opportunity.benefits && opportunity.benefits.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold">Benefits</h3>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-sm text-muted-foreground">
                   {opportunity.benefits.map((benefit, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
+                    <li key={index} className="flex items-start gap-2">
                       <span className="text-primary mt-1">•</span>
                       <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {opportunity.responsibilities && opportunity.responsibilities.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Responsibilities</h3>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {opportunity.responsibilities.map((responsibility, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>{responsibility}</span>
                     </li>
                   ))}
                 </ul>

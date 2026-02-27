@@ -1,8 +1,43 @@
 const { run, get, all } = require('../config/db');
 
+let responsibilitiesColumnEnsured = false;
+
+const isDuplicateColumnError = (error) => {
+  const message = (error && error.message) || '';
+  return /already exists|duplicate column/i.test(message);
+};
+
+const ensureResponsibilitiesColumn = async () => {
+  if (responsibilitiesColumnEnsured) return;
+
+  try {
+    await run('ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS responsibilities TEXT');
+    responsibilitiesColumnEnsured = true;
+    return;
+  } catch (error) {
+    if (isDuplicateColumnError(error)) {
+      responsibilitiesColumnEnsured = true;
+      return;
+    }
+
+    try {
+      await run('ALTER TABLE opportunities ADD COLUMN responsibilities TEXT');
+      responsibilitiesColumnEnsured = true;
+    } catch (fallbackError) {
+      if (isDuplicateColumnError(fallbackError)) {
+        responsibilitiesColumnEnsured = true;
+        return;
+      }
+      throw fallbackError;
+    }
+  }
+};
+
 class Opportunity {
   // Create a new opportunity
   static async create(opportunityData) {
+    await ensureResponsibilitiesColumn();
+
     const {
       title,
       description,
@@ -20,6 +55,7 @@ class Opportunity {
       is_remote = false,
       requirements = [],
       benefits = [],
+      responsibilities = [],
       contact_email,
       contact_phone,
       application_url,
@@ -30,15 +66,15 @@ class Opportunity {
       INSERT INTO opportunities (
         title, description, company, location, type, category_id,
         application_deadline, start_date, end_date, salary_min, salary_max, currency,
-        is_paid, is_remote, requirements, benefits, contact_email, contact_phone,
+        is_paid, is_remote, requirements, benefits, responsibilities, contact_email, contact_phone,
         application_url, posted_by, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
     `;
 
     const params = [
       title, description, company, location, type, category_id,
       application_deadline, start_date, end_date, salary_min, salary_max, currency,
-      is_paid, is_remote, JSON.stringify(requirements), JSON.stringify(benefits),
+      is_paid, is_remote, JSON.stringify(requirements), JSON.stringify(benefits), JSON.stringify(responsibilities),
       contact_email, contact_phone, application_url, posted_by
     ];
 
@@ -66,6 +102,7 @@ class Opportunity {
       // Parse JSON fields
       opportunity.requirements = JSON.parse(opportunity.requirements || '[]');
       opportunity.benefits = JSON.parse(opportunity.benefits || '[]');
+      opportunity.responsibilities = JSON.parse(opportunity.responsibilities || '[]');
 
       // Add computed fields
       opportunity.days_until_deadline = this.calculateDaysUntilDeadline(opportunity.application_deadline);
@@ -165,6 +202,7 @@ class Opportunity {
       ...opp,
       requirements: JSON.parse(opp.requirements || '[]'),
       benefits: JSON.parse(opp.benefits || '[]'),
+      responsibilities: JSON.parse(opp.responsibilities || '[]'),
       days_until_deadline: this.calculateDaysUntilDeadline(opp.application_deadline),
       is_expired: this.isExpired(opp.application_deadline)
     }));
@@ -187,6 +225,8 @@ class Opportunity {
 
   // Update opportunity
   static async update(id, updateData) {
+    await ensureResponsibilitiesColumn();
+
     // Build dynamic update query to handle partial updates
     const fields = [];
     const params = [];
@@ -255,6 +295,10 @@ class Opportunity {
     if (updateData.benefits !== undefined) {
       fields.push('benefits = ?');
       params.push(JSON.stringify(updateData.benefits));
+    }
+    if (updateData.responsibilities !== undefined) {
+      fields.push('responsibilities = ?');
+      params.push(JSON.stringify(updateData.responsibilities));
     }
     if (updateData.contact_email !== undefined) {
       fields.push('contact_email = ?');
@@ -336,6 +380,7 @@ class Opportunity {
       ...opp,
       requirements: JSON.parse(opp.requirements || '[]'),
       benefits: JSON.parse(opp.benefits || '[]'),
+      responsibilities: JSON.parse(opp.responsibilities || '[]'),
       days_until_deadline: this.calculateDaysUntilDeadline(opp.application_deadline),
       is_expired: this.isExpired(opp.application_deadline)
     }));
@@ -378,6 +423,7 @@ class Opportunity {
       ...opp,
       requirements: JSON.parse(opp.requirements || '[]'),
       benefits: JSON.parse(opp.benefits || '[]'),
+      responsibilities: JSON.parse(opp.responsibilities || '[]'),
       days_until_deadline: this.calculateDaysUntilDeadline(opp.application_deadline),
       is_expired: this.isExpired(opp.application_deadline)
     }));
