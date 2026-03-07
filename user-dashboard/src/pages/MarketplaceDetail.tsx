@@ -68,17 +68,39 @@ const parseObjectish = (value: any): Record<string, any> => {
 };
 
 const normalizeServiceDetails = (value: any) => {
-  const source = parseObjectish(value);
+  const parsedSource = parseObjectish(value);
+  const source = parsedSource.service_details && typeof parsedSource.service_details === 'object'
+    ? parsedSource.service_details
+    : parsedSource;
   return {
-    pricing_model: source.pricing_model || source.pricingModel,
-    service_area: source.service_area || source.serviceArea,
-    availability: source.availability,
+    pricing_model:
+      source.pricing_model ||
+      source.pricingModel ||
+      source.pricing ||
+      source.pricing_type ||
+      source.pricingType ||
+      source.rate_model ||
+      source.rateModel,
+    service_area:
+      source.service_area ||
+      source.serviceArea ||
+      source.area ||
+      source.coverage_area ||
+      source.coverageArea,
+    availability:
+      source.availability ||
+      source.service_availability ||
+      source.serviceAvailability ||
+      source.schedule,
   };
 };
 
 const normalizeHostelDetails = (value: any) => {
-  const source = parseObjectish(value);
-  const rawAmenities = source.amenities;
+  const parsedSource = parseObjectish(value);
+  const source = parsedSource.hostel_details && typeof parsedSource.hostel_details === 'object'
+    ? parsedSource.hostel_details
+    : parsedSource;
+  const rawAmenities = source.amenities || source.facilities || source.facility;
   const normalizedAmenities = Array.isArray(rawAmenities)
     ? rawAmenities
     : (typeof rawAmenities === 'string'
@@ -86,9 +108,23 @@ const normalizeHostelDetails = (value: any) => {
       : []);
 
   return {
-    room_type: source.room_type || source.roomType,
-    beds_available: source.beds_available ?? source.bedsAvailable,
-    gender_policy: source.gender_policy || source.genderPolicy,
+    room_type:
+      source.room_type ||
+      source.roomType ||
+      source.type_of_room ||
+      source.typeOfRoom ||
+      source.room,
+    beds_available:
+      source.beds_available ??
+      source.bedsAvailable ??
+      source.beds ??
+      source.bed_count ??
+      source.bedCount,
+    gender_policy:
+      source.gender_policy ||
+      source.genderPolicy ||
+      source.gender ||
+      source.policy,
     amenities: normalizedAmenities,
   };
 };

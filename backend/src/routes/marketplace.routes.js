@@ -21,6 +21,82 @@ const { requireUserOrAdmin } = require('../middleware/role.middleware');
 const LISTING_KINDS = ['product', 'service', 'hostel'];
 const PRODUCT_CONDITIONS = ['new', 'used', 'refurbished'];
 
+const normalizeDetailKeys = (details, fieldMap) => {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return details;
+  const normalized = { ...details };
+  for (const [targetKey, sourceKeys] of Object.entries(fieldMap)) {
+    if (normalized[targetKey] !== undefined) continue;
+    for (const sourceKey of sourceKeys) {
+      if (normalized[sourceKey] !== undefined) {
+        normalized[targetKey] = normalized[sourceKey];
+        break;
+      }
+    }
+  }
+  return normalized;
+};
+
+const parseMaybeJsonObject = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : value;
+  } catch {
+    return value;
+  }
+};
+
+const normalizeListingPayload = (req, _res, next) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return next();
+  }
+
+  const body = req.body;
+
+  if (body.listing_kind === undefined && body.listingKind !== undefined) {
+    body.listing_kind = body.listingKind;
+  }
+  if (body.category_id === undefined && body.categoryId !== undefined) {
+    body.category_id = body.categoryId;
+  }
+  if (body.contact_method === undefined && body.contactMethod !== undefined) {
+    body.contact_method = body.contactMethod;
+  }
+  if (body.is_negotiable === undefined && body.isNegotiable !== undefined) {
+    body.is_negotiable = body.isNegotiable;
+  }
+  if (body.expires_at === undefined && body.expiresAt !== undefined) {
+    body.expires_at = body.expiresAt;
+  }
+  if (body.image_urls === undefined && body.imageUrls !== undefined) {
+    body.image_urls = body.imageUrls;
+  }
+
+  if (body.service_details === undefined && body.serviceDetails !== undefined) {
+    body.service_details = body.serviceDetails;
+  }
+  if (body.hostel_details === undefined && body.hostelDetails !== undefined) {
+    body.hostel_details = body.hostelDetails;
+  }
+
+  body.service_details = parseMaybeJsonObject(body.service_details);
+  body.hostel_details = parseMaybeJsonObject(body.hostel_details);
+
+  body.service_details = normalizeDetailKeys(body.service_details, {
+    pricing_model: ['pricingModel'],
+    service_area: ['serviceArea']
+  });
+
+  body.hostel_details = normalizeDetailKeys(body.hostel_details, {
+    room_type: ['roomType'],
+    beds_available: ['bedsAvailable'],
+    gender_policy: ['genderPolicy']
+  });
+
+  return next();
+};
+
 // Validation rules
 const createValidation = [
   body('title')
@@ -151,8 +227,8 @@ router.get('/user/stats', authenticateToken, getMarketplaceStats); // Get market
 router.post('/:id/like', authenticateToken, toggleListingLike); // Like/unlike listing
 
 // Admin routes
-router.post('/', authenticateToken, requireUserOrAdmin, createValidation, createListing); // Create listing
-router.put('/:id', authenticateToken, requireUserOrAdmin, updateValidation, updateListing); // Update listing
+router.post('/', authenticateToken, requireUserOrAdmin, normalizeListingPayload, createValidation, createListing); // Create listing
+router.put('/:id', authenticateToken, requireUserOrAdmin, normalizeListingPayload, updateValidation, updateListing); // Update listing
 router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteListing); // Delete listing
 
 module.exports = router;

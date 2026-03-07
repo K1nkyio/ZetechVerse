@@ -96,13 +96,46 @@ const normalizeAmenities = (value) => {
   return [];
 };
 
+const normalizeKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const getFirstValueByKeys = (source, keys) => {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return undefined;
+  const directMap = new Map();
+  for (const [key, value] of Object.entries(source)) {
+    directMap.set(normalizeKey(key), value);
+  }
+  for (const key of keys) {
+    const hit = directMap.get(normalizeKey(key));
+    if (hit !== undefined && hit !== null && hit !== '') return hit;
+  }
+  return undefined;
+};
+
+const unwrapDetailsSource = (value, preferredNestedKey) => {
+  const parsedSource = parseJsonObject(value);
+  const nested = parsedSource[preferredNestedKey];
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested;
+  }
+  if (parsedSource.details && typeof parsedSource.details === 'object' && !Array.isArray(parsedSource.details)) {
+    return parsedSource.details;
+  }
+  return parsedSource;
+};
+
 const normalizeServiceDetails = (value) => {
-  const source = parseJsonObject(value);
+  const source = unwrapDetailsSource(value, 'service_details');
   const normalized = {};
 
-  const pricingModel = asTrimmedString(source.pricing_model || source.pricingModel);
-  const serviceArea = asTrimmedString(source.service_area || source.serviceArea);
-  const availability = asTrimmedString(source.availability);
+  const pricingModel = asTrimmedString(getFirstValueByKeys(source, [
+    'pricing_model', 'pricingModel', 'pricing', 'pricing_type', 'pricingType', 'rate_model', 'rateModel', 'pricing model'
+  ]));
+  const serviceArea = asTrimmedString(getFirstValueByKeys(source, [
+    'service_area', 'serviceArea', 'area', 'coverage_area', 'coverageArea', 'service area'
+  ]));
+  const availability = asTrimmedString(getFirstValueByKeys(source, [
+    'availability', 'service_availability', 'serviceAvailability', 'schedule'
+  ]));
 
   if (pricingModel) normalized.pricing_model = pricingModel;
   if (serviceArea) normalized.service_area = serviceArea;
@@ -112,14 +145,22 @@ const normalizeServiceDetails = (value) => {
 };
 
 const normalizeHostelDetails = (value) => {
-  const source = parseJsonObject(value);
+  const source = unwrapDetailsSource(value, 'hostel_details');
   const normalized = {};
 
-  const roomType = asTrimmedString(source.room_type || source.roomType);
-  const bedsAvailableRaw = source.beds_available ?? source.bedsAvailable;
+  const roomType = asTrimmedString(getFirstValueByKeys(source, [
+    'room_type', 'roomType', 'type_of_room', 'typeOfRoom', 'room', 'room type'
+  ]));
+  const bedsAvailableRaw = getFirstValueByKeys(source, [
+    'beds_available', 'bedsAvailable', 'beds', 'bed_count', 'bedCount', 'beds available'
+  ]);
   const bedsAvailable = Number(bedsAvailableRaw);
-  const genderPolicy = asTrimmedString(source.gender_policy || source.genderPolicy);
-  const amenities = normalizeAmenities(source.amenities);
+  const genderPolicy = asTrimmedString(getFirstValueByKeys(source, [
+    'gender_policy', 'genderPolicy', 'gender', 'policy', 'gender policy'
+  ]));
+  const amenities = normalizeAmenities(getFirstValueByKeys(source, [
+    'amenities', 'facilities', 'facility'
+  ]));
 
   if (roomType) normalized.room_type = roomType;
   if (Number.isFinite(bedsAvailable) && bedsAvailable > 0) normalized.beds_available = bedsAvailable;

@@ -50,22 +50,42 @@ const getEffectiveListingKind = (listing: MarketplaceListing): "product" | "serv
   const rawKind = String(listing.listing_kind || "").toLowerCase();
   if (rawKind === "service" || rawKind === "hostel") return rawKind;
 
-  const serviceDetails = parseObjectish(listing.service_details);
-  const hostelDetails = parseObjectish(listing.hostel_details);
+  const parsedService = parseObjectish(listing.service_details);
+  const parsedHostel = parseObjectish(listing.hostel_details);
+  const serviceDetails = parsedService.service_details && typeof parsedService.service_details === "object"
+    ? parsedService.service_details
+    : parsedService;
+  const hostelDetails = parsedHostel.hostel_details && typeof parsedHostel.hostel_details === "object"
+    ? parsedHostel.hostel_details
+    : parsedHostel;
 
   const hasServiceDetails = Boolean(
     serviceDetails.pricing_model ||
     serviceDetails.pricingModel ||
+    serviceDetails.pricing ||
+    serviceDetails.pricing_type ||
+    serviceDetails.pricingType ||
+    serviceDetails.rate_model ||
+    serviceDetails.rateModel ||
     serviceDetails.service_area ||
     serviceDetails.serviceArea ||
+    serviceDetails.area ||
+    serviceDetails.coverage_area ||
+    serviceDetails.coverageArea ||
     serviceDetails.availability
   );
   const hasHostelDetails = Boolean(
     hostelDetails.room_type ||
     hostelDetails.roomType ||
+    hostelDetails.type_of_room ||
+    hostelDetails.typeOfRoom ||
+    hostelDetails.room ||
     Number(hostelDetails.beds_available ?? hostelDetails.bedsAvailable ?? 0) > 0 ||
+    Number(hostelDetails.beds ?? hostelDetails.bed_count ?? hostelDetails.bedCount ?? 0) > 0 ||
     hostelDetails.gender_policy ||
     hostelDetails.genderPolicy ||
+    hostelDetails.gender ||
+    hostelDetails.policy ||
     (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
   );
 
