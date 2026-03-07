@@ -90,6 +90,7 @@ const HeroSection = () => {
     backgroundImage: `url(${heroImage})`,
     backgroundPosition: isDesktop ? `center calc(35% + ${scrollOffset * 0.04}px)` : 'center 35%',
     backgroundSize: 'cover',
+    filter: 'brightness(0.94) contrast(1.02) saturate(1.02)',
     transform: isDesktop ? `scale(${1 + scrollOffset * 0.0002})` : 'scale(1)',
     transformOrigin: 'center center',
   } as const;
@@ -103,7 +104,7 @@ const HeroSection = () => {
     >
       <div className="absolute inset-0 pointer-events-none will-change-transform" style={heroBackgroundStyle} />
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/70 via-black/45 to-black/25" />
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/45 via-black/30 to-background/95" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/45 via-black/30 to-black/45 dark:to-background/90" />
 
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-20 -left-8 h-64 w-64 rounded-full bg-primary/8 blur-3xl animate-float" />
@@ -198,7 +199,7 @@ const HeroSection = () => {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background/45 to-transparent pointer-events-none" />
     </section>
   );
 };

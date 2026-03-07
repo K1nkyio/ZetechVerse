@@ -403,7 +403,7 @@ const BlogDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container-blog py-8">
+        <main className="container mx-auto px-3 sm:px-4 py-8">
           <div className="text-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading post...</p>
@@ -418,7 +418,7 @@ const BlogDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container-blog py-8">
+        <main className="container mx-auto px-3 sm:px-4 py-8">
           <div className="text-center py-16">
             <h1 className="text-2xl font-bold text-foreground mb-4">Post Not Found</h1>
             <p className="text-muted-foreground mb-6">{error || 'The post you are looking for does not exist.'}</p>
@@ -447,7 +447,7 @@ const BlogDetail = () => {
       <ReadingProgress />
       <Header />
       
-      <main id="main-content" className="container-blog py-8">
+      <main id="main-content" className="container mx-auto px-3 sm:px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-12">
           {/* Main Content */}
           <div className="lg:col-span-2">

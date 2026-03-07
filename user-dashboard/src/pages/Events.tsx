@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import PageHeader from '@/components/ui/page-header';
 import { useToast } from '@/hooks/use-toast';
+import { applyImageFallback, normalizeImageUrl, normalizeVideoUrl } from '@/lib/image';
 import { 
   Search, 
   Calendar,
@@ -31,6 +32,55 @@ const categories = [
   { id: 'social', name: 'Social', icon: Music },
   { id: 'competition', name: 'Competitions', icon: Trophy },
 ];
+
+const isLikelyVideo = (url: string) => /\.(mp4|webm|ogg|mov|m4v|avi)(\?|#|$)/i.test(url);
+
+const toMediaArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value !== 'string') return [];
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+const getEventImageSrc = (event: EventData & Record<string, unknown>): string | null => {
+  const directImage = typeof event.image_url === 'string' ? event.image_url.trim() : '';
+  if (directImage) return normalizeImageUrl(directImage);
+
+  const imageList = toMediaArray(event.image_urls);
+  if (imageList.length > 0) return normalizeImageUrl(imageList[0]);
+
+  const fromMedia = toMediaArray(event.media_urls).find((url) => !isLikelyVideo(url));
+  return fromMedia ? normalizeImageUrl(fromMedia) : null;
+};
+
+const getEventVideoSrc = (event: EventData & Record<string, unknown>): string | null => {
+  const directVideo = typeof event.video_url === 'string' ? event.video_url.trim() : '';
+  if (directVideo) return normalizeVideoUrl(directVideo);
+
+  const videoList = toMediaArray(event.video_urls);
+  if (videoList.length > 0) return normalizeVideoUrl(videoList[0]);
+
+  const fromMedia = toMediaArray(event.media_urls).find((url) => isLikelyVideo(url));
+  return fromMedia ? normalizeVideoUrl(fromMedia) : null;
+};
 
 const Events = () => {
   const navigate = useNavigate();
@@ -197,90 +247,96 @@ const Events = () => {
         {/* Events Grid */}
         {!loading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map((event: any) => (
-              <Link
-                key={event.id}
-                to={`/events/${event.id}`}
-                className="group block bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/50 hover:shadow-lg transition-all"
-              >
-                <div className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10">
-                  {event.video_url ? (
-                    <video
-                      src={event.video_url}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      muted
-                      playsInline
-                      preload="metadata"
-                    />
-                  ) : event.image_url ? (
-                    <img
-                      src={event.image_url}
-                      alt={event.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Calendar className="h-12 w-12 text-muted-foreground/50" />
+            {filteredEvents.map((event: EventData & Record<string, unknown>) => {
+              const imageSrc = getEventImageSrc(event);
+              const videoSrc = getEventVideoSrc(event);
+
+              return (
+                <Link
+                  key={event.id}
+                  to={`/events/${event.id}`}
+                  className="group block bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/50 hover:shadow-lg transition-all"
+                >
+                  <div className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10">
+                    {imageSrc ? (
+                      <img
+                        src={imageSrc}
+                        alt={event.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={applyImageFallback}
+                      />
+                    ) : videoSrc ? (
+                      <video
+                        src={videoSrc}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Calendar className="h-12 w-12 text-muted-foreground/50" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="secondary" className="capitalize">{event.type}</Badge>
+                      <span className="text-xs text-muted-foreground">{formatDate(event.start_date)}</span>
                     </div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Badge variant="secondary" className="capitalize">{event.type}</Badge>
-                    <span className="text-xs text-muted-foreground">{formatDate(event.start_date)}</span>
-                  </div>
-                  <h3 className="font-bold mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                    {event.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                    {event.description}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {formatDate(event.start_date)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatTime(event.start_date)}
-                    </span>
-                    {event.location && (
+                    <h3 className="font-bold mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                      {event.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                      {event.description}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {event.location}
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(event.start_date)}
                       </span>
-                    )}
-                    {event.max_attendees && (
                       <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {event.max_attendees} attending
+                        <Clock className="h-3 w-3" />
+                        {formatTime(event.start_date)}
                       </span>
-                    )}
+                      {event.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {event.location}
+                        </span>
+                      )}
+                      {event.max_attendees && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {event.max_attendees} attending
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="px-5 pb-5">
-                  <div className="flex items-center justify-between">
-                    <Button className="gap-2" variant="outline" onClick={(e) => {
-                      e.preventDefault();
-                      navigate(`/events/${event.id}`);
-                    }}>
-                      <CalendarCheck className="h-4 w-4" />
-                      View Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={(e) => {
+                  <div className="px-5 pb-5">
+                    <div className="flex items-center justify-between">
+                      <Button className="gap-2" variant="outline" onClick={(e) => {
                         e.preventDefault();
-                        handleShare(event);
-                      }}
-                    >
-                      <Share2 className="h-4 w-4" />
-                    </Button>
+                        navigate(`/events/${event.id}`);
+                      }}>
+                        <CalendarCheck className="h-4 w-4" />
+                        View Details
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleShare(event);
+                        }}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
 

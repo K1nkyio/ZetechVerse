@@ -54,8 +54,8 @@ const OpportunityDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto">
+        <main className="container mx-auto px-3 sm:px-4 py-16">
+          <div className="w-full">
             <div className="flex items-center justify-center min-h-[400px]">
               <Loader className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -70,7 +70,7 @@ const OpportunityDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto px-4 py-16 text-center">
+        <main className="container mx-auto px-3 sm:px-4 py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">Opportunity Not Found</h1>
           <p className="text-muted-foreground mb-8">The opportunity you're looking for doesn't exist or has been removed.</p>
           <Button asChild>
@@ -85,8 +85,8 @@ const OpportunityDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <main className="container mx-auto px-3 sm:px-4 py-8">
+        <div className="w-full space-y-8">
           {/* Back Button */}
           <Button variant="ghost" asChild className="gap-2">
             <Link to="/opportunities">
@@ -154,15 +154,15 @@ const OpportunityDetail = () => {
           </div>
 
           {/* Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 xl:gap-10 items-start">
             {/* Requirements */}
             {opportunity.requirements && opportunity.requirements.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-4 rounded-2xl border border-border/70 bg-card/40 p-5 md:p-6 h-full">
                 <h3 className="text-lg font-semibold">Requirements</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <ul className="space-y-3 text-sm md:text-base text-muted-foreground leading-relaxed">
                   {opportunity.requirements.map((req, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
+                    <li key={index} className="flex items-start gap-3">
+                      <span aria-hidden="true" className="text-primary mt-1 leading-none">&bull;</span>
                       <span>{req}</span>
                     </li>
                   ))}
@@ -172,12 +172,12 @@ const OpportunityDetail = () => {
 
             {/* Benefits */}
             {opportunity.benefits && opportunity.benefits.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-4 rounded-2xl border border-border/70 bg-card/40 p-5 md:p-6 h-full">
                 <h3 className="text-lg font-semibold">Benefits</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <ul className="space-y-3 text-sm md:text-base text-muted-foreground leading-relaxed">
                   {opportunity.benefits.map((benefit, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
+                    <li key={index} className="flex items-start gap-3">
+                      <span aria-hidden="true" className="text-primary mt-1 leading-none">&bull;</span>
                       <span>{benefit}</span>
                     </li>
                   ))}
@@ -186,12 +186,12 @@ const OpportunityDetail = () => {
             )}
 
             {opportunity.responsibilities && opportunity.responsibilities.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-4 rounded-2xl border border-border/70 bg-card/40 p-5 md:p-6 h-full">
                 <h3 className="text-lg font-semibold">Responsibilities</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <ul className="space-y-3 text-sm md:text-base text-muted-foreground leading-relaxed">
                   {opportunity.responsibilities.map((responsibility, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
+                    <li key={index} className="flex items-start gap-3">
+                      <span aria-hidden="true" className="text-primary mt-1 leading-none">&bull;</span>
                       <span>{responsibility}</span>
                     </li>
                   ))}
@@ -250,3 +250,4 @@ const OpportunityDetail = () => {
 };
 
 export default OpportunityDetail;
+

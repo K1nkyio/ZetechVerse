@@ -75,62 +75,68 @@ const OpportunitiesPreview = () => {
               <p className="text-muted-foreground">No opportunities available right now.</p>
             </div>
           ) : (
-            (opportunities || []).map((opp) => (
-            <Link
-              key={opp.id}
-              to={`/opportunities/${opp.id}`}
-              className="group block p-6 bg-card rounded-2xl border border-border hover:border-primary/50 hover:shadow-lg transition-all"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <Briefcase className="h-6 w-6 text-primary" />
-                </div>
-                  <Badge variant="outline" className="capitalize">{opp.type}</Badge>
-              </div>
+            (opportunities || []).map((opp) => {
+              const rawRequirement = opp.requirements?.[0]?.trim() || '';
+              const normalizedRequirement = rawRequirement.replace(/\s+/g, ' ');
+              const truncatedRequirement =
+                normalizedRequirement.length > 120
+                  ? normalizedRequirement.slice(0, 120).replace(/\s+\S*$/, '')
+                  : normalizedRequirement;
+              const requirementSnippet = truncatedRequirement ? `${truncatedRequirement}...` : null;
 
-                <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                {opp.title}
-              </h3>
+              return (
+                <Link
+                  key={opp.id}
+                  to={`/opportunities/${opp.id}`}
+                  className="group block p-6 bg-card rounded-2xl border border-border hover:border-primary/50 hover:shadow-lg transition-all"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <Briefcase className="h-6 w-6 text-primary" />
+                    </div>
+                    <Badge variant="outline" className="capitalize">{opp.type}</Badge>
+                  </div>
 
-              <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                    <span className="truncate">{opp.company}</span>
-                </div>
-                  {opp.location && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                      <span className="truncate">{opp.location}</span>
-                </div>
-                  )}
-                  {opp.days_until_deadline !== undefined && (
-                    <div className={`flex items-center gap-2 ${typeof opp.days_until_deadline === 'number' && opp.days_until_deadline <= 7 && opp.days_until_deadline > 0 ? 'text-destructive' : ''}`}>
-                      <Clock className="h-4 w-4" />
-                      {typeof opp.days_until_deadline !== 'number'
-                        ? 'N/A'
-                        : opp.days_until_deadline > 0
-                        ? `${opp.days_until_deadline} days left`
-                        : 'Expired'}
+                  <h3 className="font-bold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-2">
+                    {opp.title}
+                  </h3>
+
+                  <div className="space-y-2 text-sm text-muted-foreground mb-4">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span className="truncate">{opp.company}</span>
+                    </div>
+                    {opp.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        <span className="truncate">{opp.location}</span>
+                      </div>
+                    )}
+                    {opp.days_until_deadline !== undefined && (
+                      <div className={`flex items-center gap-2 ${typeof opp.days_until_deadline === 'number' && opp.days_until_deadline <= 7 && opp.days_until_deadline > 0 ? 'text-destructive' : ''}`}>
+                        <Clock className="h-4 w-4" />
+                        {typeof opp.days_until_deadline !== 'number'
+                          ? 'N/A'
+                          : opp.days_until_deadline > 0
+                          ? `${opp.days_until_deadline} days left`
+                          : 'Expired'}
+                      </div>
+                    )}
+                  </div>
+
+                  {requirementSnippet && (
+                    <div className="mt-5 border-t border-border/70 pt-4 space-y-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/90">
+                        Requirement
+                      </p>
+                      <p className="text-sm text-foreground/90 leading-relaxed">
+                        {requirementSnippet}
+                      </p>
                     </div>
                   )}
-              </div>
-
-                {opp.benefits && opp.benefits.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                    {opp.benefits.slice(0, 2).map((benefit, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {benefit}
-                  </Badge>
-                ))}
-                    {opp.benefits.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{opp.benefits.length - 2}
-                      </Badge>
-                    )}
-              </div>
-                )}
-            </Link>
-            ))
+                </Link>
+              );
+            })
           )}
         </div>
       </div>

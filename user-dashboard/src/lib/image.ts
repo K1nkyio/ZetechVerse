@@ -69,3 +69,16 @@ export const applyImageFallback = (event: SyntheticEvent<HTMLImageElement>): voi
   element.src = PLACEHOLDER_IMAGE;
 };
 
+export const normalizeVideoUrl = (rawUrl?: string | null): string | null => {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+
+  const value = rawUrl.trim();
+  if (!value) return null;
+  if (value.startsWith('/') || value.startsWith('blob:') || value.startsWith('data:')) return value;
+
+  try {
+    return new URL(value).toString();
+  } catch {
+    return value;
+  }
+};

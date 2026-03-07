@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { postsApi, Post as ApiPost } from '@/api/posts.api';
+import { applyImageFallback, normalizeImageUrl, normalizeVideoUrl } from '@/lib/image';
 import { 
   Search,
   Clock,
@@ -39,13 +40,62 @@ interface BlogPost {
   title: string;
   excerpt: string;
   category: string;
-  image: string;
+  image?: string;
   video?: string;
   author: string;
   readTime: string;
   date: string;
   featured: boolean;
 }
+
+const isLikelyVideo = (url: string) => /\.(mp4|webm|ogg|mov|m4v|avi)(\?|#|$)/i.test(url);
+
+const toMediaArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value !== 'string') return [];
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+const pickPostImage = (post: ApiPost): string | undefined => {
+  const directImage = typeof post.image_url === 'string' ? post.image_url.trim() : '';
+  if (directImage) return normalizeImageUrl(directImage);
+
+  const imageList = toMediaArray(post.image_urls);
+  if (imageList.length > 0) return normalizeImageUrl(imageList[0]);
+
+  const fromMedia = toMediaArray(post.media_urls).find((url) => !isLikelyVideo(url));
+  return fromMedia ? normalizeImageUrl(fromMedia) : undefined;
+};
+
+const pickPostVideo = (post: ApiPost): string | undefined => {
+  const directVideo = typeof post.video_url === 'string' ? post.video_url.trim() : '';
+  if (directVideo) return normalizeVideoUrl(directVideo) || undefined;
+
+  const videoList = toMediaArray(post.video_urls);
+  if (videoList.length > 0) return normalizeVideoUrl(videoList[0]) || undefined;
+
+  const fromMedia = toMediaArray(post.media_urls).find((url) => isLikelyVideo(url));
+  return fromMedia ? normalizeVideoUrl(fromMedia) || undefined : undefined;
+};
 
 const categories = [
   { id: 'all', name: 'All', icon: BookOpen },
@@ -118,8 +168,8 @@ const Explore = () => {
           title: post.title,
           excerpt: excerpt,
           category: mappedCategory,
-          image: post.image_url || '/placeholder.svg',
-          video: post.video_url,
+          image: pickPostImage(post),
+          video: pickPostVideo(post),
           author: post.author_name || post.author_username || 'Anonymous',
           readTime: `${readTime} min read`,
           date: new Date(post.created_at).toLocaleDateString(),
@@ -276,7 +326,14 @@ const Explore = () => {
                   className="group block"
                 >
                   <article className="relative h-[300px] rounded-2xl overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20">
-                    {post.video ? (
+                    {post.image ? (
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
+                        onError={applyImageFallback}
+                      />
+                    ) : post.video ? (
                       <video
                         src={post.video}
                         className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
@@ -286,9 +343,10 @@ const Explore = () => {
                       />
                     ) : (
                       <img
-                        src={post.image}
+                        src="/placeholder.svg"
                         alt={post.title}
                         className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
+                        onError={applyImageFallback}
                       />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
@@ -344,7 +402,14 @@ const Explore = () => {
                 className="group block bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/50 hover:shadow-lg transition-all"
               >
                 <div className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10">
-                  {post.video ? (
+                  {post.image ? (
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={applyImageFallback}
+                    />
+                  ) : post.video ? (
                     <video
                       src={post.video}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -354,9 +419,10 @@ const Explore = () => {
                     />
                   ) : (
                     <img
-                      src={post.image}
+                      src="/placeholder.svg"
                       alt={post.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={applyImageFallback}
                     />
                   )}
                 </div>
