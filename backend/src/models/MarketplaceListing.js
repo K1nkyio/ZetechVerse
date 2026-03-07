@@ -50,12 +50,122 @@ const parseJsonArray = (value) => {
 const parseJsonObject = (value) => {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value;
   if (!value) return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch (error) {
-    return {};
+  if (typeof value !== 'string') return {};
+
+  let current = value;
+
+  // Handle legacy/double-encoded JSON payloads.
+  for (let i = 0; i < 2; i += 1) {
+    try {
+      const parsed = JSON.parse(current);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      if (typeof parsed === 'string') {
+        current = parsed;
+        continue;
+      }
+      return {};
+    } catch (error) {
+      return {};
+    }
   }
+
+  return {};
+};
+
+const asTrimmedString = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
+
+const normalizeAmenities = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => asTrimmedString(item))
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/[,\n;|]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const normalizeServiceDetails = (value) => {
+  const source = parseJsonObject(value);
+  const normalized = {};
+
+  const pricingModel = asTrimmedString(source.pricing_model || source.pricingModel);
+  const serviceArea = asTrimmedString(source.service_area || source.serviceArea);
+  const availability = asTrimmedString(source.availability);
+
+  if (pricingModel) normalized.pricing_model = pricingModel;
+  if (serviceArea) normalized.service_area = serviceArea;
+  if (availability) normalized.availability = availability;
+
+  return normalized;
+};
+
+const normalizeHostelDetails = (value) => {
+  const source = parseJsonObject(value);
+  const normalized = {};
+
+  const roomType = asTrimmedString(source.room_type || source.roomType);
+  const bedsAvailableRaw = source.beds_available ?? source.bedsAvailable;
+  const bedsAvailable = Number(bedsAvailableRaw);
+  const genderPolicy = asTrimmedString(source.gender_policy || source.genderPolicy);
+  const amenities = normalizeAmenities(source.amenities);
+
+  if (roomType) normalized.room_type = roomType;
+  if (Number.isFinite(bedsAvailable) && bedsAvailable > 0) normalized.beds_available = bedsAvailable;
+  if (genderPolicy) normalized.gender_policy = genderPolicy;
+  if (amenities.length > 0) normalized.amenities = amenities;
+
+  return normalized;
+};
+
+const hasServiceDetails = (details) =>
+  Boolean(
+    details &&
+    (
+      details.pricing_model ||
+      details.service_area ||
+      details.availability
+    )
+  );
+
+const hasHostelDetails = (details) =>
+  Boolean(
+    details &&
+    (
+      details.room_type ||
+      Number(details.beds_available || 0) > 0 ||
+      details.gender_policy ||
+      (Array.isArray(details.amenities) && details.amenities.length > 0)
+    )
+  );
+
+const normalizeListingKind = (listingKind, serviceDetails = {}, hostelDetails = {}, categoryName = '', categorySlug = '') => {
+  const rawKind = asTrimmedString(listingKind).toLowerCase();
+
+  if (rawKind === 'service' || rawKind === 'hostel') {
+    return rawKind;
+  }
+
+  // Prefer concrete details over stale/incorrect listing kind values.
+  if (hasHostelDetails(hostelDetails)) return 'hostel';
+  if (hasServiceDetails(serviceDetails)) return 'service';
+
+  const categoryText = `${asTrimmedString(categoryName)} ${asTrimmedString(categorySlug)}`.toLowerCase();
+  if (categoryText.includes('hostel')) return 'hostel';
+  if (categoryText.includes('service')) return 'service';
+
+  return 'product';
 };
 
 class MarketplaceListing {
@@ -84,7 +194,13 @@ class MarketplaceListing {
       status = 'active'
     } = listingData;
 
-    const normalizedListingKind = listing_kind || 'product';
+    const normalizedServiceDetails = normalizeServiceDetails(service_details);
+    const normalizedHostelDetails = normalizeHostelDetails(hostel_details);
+    const normalizedListingKind = normalizeListingKind(
+      listing_kind,
+      normalizedServiceDetails,
+      normalizedHostelDetails
+    );
     const normalizedCondition = normalizedListingKind === 'product' ? (condition || 'used') : condition || null;
 
     const sql = `
@@ -101,8 +217,8 @@ class MarketplaceListing {
       is_negotiable, urgent,
       expires_at,
       normalizedListingKind,
-      JSON.stringify(service_details || {}),
-      JSON.stringify(hostel_details || {}),
+      JSON.stringify(normalizedServiceDetails),
+      JSON.stringify(normalizedHostelDetails),
       seller_id, status
     ];
 
@@ -130,9 +246,15 @@ class MarketplaceListing {
       // Parse JSON fields
       listing.image_urls = parseJsonArray(listing.image_urls);
       listing.tags = parseJsonArray(listing.tags);
-      listing.service_details = parseJsonObject(listing.service_details);
-      listing.hostel_details = parseJsonObject(listing.hostel_details);
-      listing.listing_kind = listing.listing_kind || 'product';
+      listing.service_details = normalizeServiceDetails(listing.service_details);
+      listing.hostel_details = normalizeHostelDetails(listing.hostel_details);
+      listing.listing_kind = normalizeListingKind(
+        listing.listing_kind,
+        listing.service_details,
+        listing.hostel_details,
+        listing.category_name,
+        listing.category_slug
+      );
 
       // Convert boolean fields
       listing.is_negotiable = Boolean(listing.is_negotiable);
@@ -239,16 +361,27 @@ class MarketplaceListing {
     const listings = await all(sql, listingParams);
 
     // Parse JSON fields for each listing
-    const processedListings = listings.map(listing => ({
-      ...listing,
-      image_urls: parseJsonArray(listing.image_urls),
-      tags: parseJsonArray(listing.tags),
-      service_details: parseJsonObject(listing.service_details),
-      hostel_details: parseJsonObject(listing.hostel_details),
-      listing_kind: listing.listing_kind || 'product',
-      is_negotiable: Boolean(listing.is_negotiable),
-      urgent: Boolean(listing.urgent)
-    }));
+    const processedListings = listings.map((listing) => {
+      const normalizedService = normalizeServiceDetails(listing.service_details);
+      const normalizedHostel = normalizeHostelDetails(listing.hostel_details);
+
+      return {
+        ...listing,
+        image_urls: parseJsonArray(listing.image_urls),
+        tags: parseJsonArray(listing.tags),
+        service_details: normalizedService,
+        hostel_details: normalizedHostel,
+        listing_kind: normalizeListingKind(
+          listing.listing_kind,
+          normalizedService,
+          normalizedHostel,
+          listing.category_name,
+          listing.category_slug
+        ),
+        is_negotiable: Boolean(listing.is_negotiable),
+        urgent: Boolean(listing.urgent)
+      };
+    });
 
     return {
       listings: processedListings,
@@ -289,6 +422,26 @@ class MarketplaceListing {
       hostel_details,
       status
     } = updateData;
+
+    const normalizedServiceDetails = service_details === undefined
+      ? undefined
+      : (service_details === null ? null : normalizeServiceDetails(service_details));
+    const normalizedHostelDetails = hostel_details === undefined
+      ? undefined
+      : (hostel_details === null ? null : normalizeHostelDetails(hostel_details));
+
+    let normalizedListingKind = listing_kind;
+    if (normalizedListingKind !== undefined) {
+      normalizedListingKind = normalizeListingKind(
+        normalizedListingKind,
+        normalizedServiceDetails || {},
+        normalizedHostelDetails || {}
+      );
+    } else if (normalizedHostelDetails && hasHostelDetails(normalizedHostelDetails)) {
+      normalizedListingKind = 'hostel';
+    } else if (normalizedServiceDetails && hasServiceDetails(normalizedServiceDetails)) {
+      normalizedListingKind = 'service';
+    }
 
     const fields = [];
     const params = [];
@@ -345,17 +498,17 @@ class MarketplaceListing {
       fields.push('expires_at = ?');
       params.push(expires_at);
     }
-    if (listing_kind !== undefined) {
+    if (normalizedListingKind !== undefined) {
       fields.push('listing_kind = ?');
-      params.push(listing_kind);
+      params.push(normalizedListingKind);
     }
-    if (service_details !== undefined) {
+    if (normalizedServiceDetails !== undefined) {
       fields.push('service_details = ?');
-      params.push(service_details === null ? null : JSON.stringify(service_details));
+      params.push(normalizedServiceDetails === null ? null : JSON.stringify(normalizedServiceDetails));
     }
-    if (hostel_details !== undefined) {
+    if (normalizedHostelDetails !== undefined) {
       fields.push('hostel_details = ?');
-      params.push(hostel_details === null ? null : JSON.stringify(hostel_details));
+      params.push(normalizedHostelDetails === null ? null : JSON.stringify(normalizedHostelDetails));
     }
     if (status !== undefined) {
       fields.push('status = ?');

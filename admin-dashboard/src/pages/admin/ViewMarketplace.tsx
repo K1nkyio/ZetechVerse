@@ -10,6 +10,65 @@ import { StatusBadge } from "@/components/admin/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit, ArrowLeft, MapPin, Calendar, DollarSign, User, Eye } from "lucide-react";
 
+const parseObjectish = (value: unknown): Record<string, any> => {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, any>;
+  if (typeof value !== "string" || !value.trim()) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const normalizeServiceDetails = (value: unknown) => {
+  const source = parseObjectish(value);
+  return {
+    pricing_model: source.pricing_model || source.pricingModel,
+    service_area: source.service_area || source.serviceArea,
+    availability: source.availability,
+  };
+};
+
+const normalizeHostelDetails = (value: unknown) => {
+  const source = parseObjectish(value);
+  return {
+    room_type: source.room_type || source.roomType,
+    beds_available: source.beds_available ?? source.bedsAvailable,
+    gender_policy: source.gender_policy || source.genderPolicy,
+    amenities: Array.isArray(source.amenities) ? source.amenities : [],
+  };
+};
+
+const getEffectiveListingKind = (listing: MarketplaceListing): "product" | "service" | "hostel" => {
+  const rawKind = String(listing.listing_kind || "").toLowerCase();
+  if (rawKind === "service" || rawKind === "hostel") return rawKind;
+
+  const serviceDetails = normalizeServiceDetails(listing.service_details);
+  const hostelDetails = normalizeHostelDetails(listing.hostel_details);
+
+  const hasServiceDetails = Boolean(
+    serviceDetails.pricing_model ||
+    serviceDetails.service_area ||
+    serviceDetails.availability
+  );
+  const hasHostelDetails = Boolean(
+    hostelDetails.room_type ||
+    Number(hostelDetails.beds_available ?? 0) > 0 ||
+    hostelDetails.gender_policy ||
+    (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
+  );
+
+  if (hasHostelDetails) return "hostel";
+  if (hasServiceDetails) return "service";
+
+  const categoryText = `${listing.category_name || ""} ${listing.category_slug || ""}`.toLowerCase();
+  if (categoryText.includes("hostel")) return "hostel";
+  if (categoryText.includes("service")) return "service";
+
+  return "product";
+};
+
 export default function AdminViewMarketplace() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -73,6 +132,10 @@ export default function AdminViewMarketplace() {
       </AdminLayout>
     );
   }
+
+  const listingKind = getEffectiveListingKind(listing);
+  const serviceDetails = normalizeServiceDetails(listing.service_details);
+  const hostelDetails = normalizeHostelDetails(listing.hostel_details);
 
   return (
     <AdminLayout variant="admin">
@@ -158,29 +221,29 @@ export default function AdminViewMarketplace() {
 
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Listing Type</p>
-                  <Badge variant="outline" className="capitalize">{listing.listing_kind || "product"}</Badge>
+                  <Badge variant="outline" className="capitalize">{listingKind}</Badge>
                 </div>
 
-                {listing.listing_kind === "product" && (
+                {listingKind === "product" && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Condition</p>
                     <Badge variant="outline" className="capitalize">{listing.condition || "N/A"}</Badge>
                   </div>
                 )}
 
-                {listing.listing_kind === "service" && listing.service_details?.pricing_model && (
+                {listingKind === "service" && serviceDetails.pricing_model && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Pricing Model</p>
                     <Badge variant="secondary" className="capitalize">
-                      {listing.service_details.pricing_model.replace("_", " ")}
+                      {String(serviceDetails.pricing_model).replace("_", " ")}
                     </Badge>
                   </div>
                 )}
 
-                {listing.listing_kind === "hostel" && listing.hostel_details?.room_type && (
+                {listingKind === "hostel" && hostelDetails.room_type && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Room Type</p>
-                    <Badge variant="secondary" className="capitalize">{listing.hostel_details.room_type}</Badge>
+                    <Badge variant="secondary" className="capitalize">{hostelDetails.room_type}</Badge>
                   </div>
                 )}
 
@@ -213,39 +276,39 @@ export default function AdminViewMarketplace() {
                   <Badge variant="destructive">Urgent</Badge>
                 )}
 
-                {listing.listing_kind === "service" && listing.service_details?.service_area && (
+                {listingKind === "service" && serviceDetails.service_area && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Service Area</p>
-                    <p className="text-foreground">{listing.service_details.service_area}</p>
+                    <p className="text-foreground">{serviceDetails.service_area}</p>
                   </div>
                 )}
 
-                {listing.listing_kind === "service" && listing.service_details?.availability && (
+                {listingKind === "service" && serviceDetails.availability && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Availability</p>
-                    <p className="text-foreground">{listing.service_details.availability}</p>
+                    <p className="text-foreground">{serviceDetails.availability}</p>
                   </div>
                 )}
 
-                {listing.listing_kind === "hostel" && (
+                {listingKind === "hostel" && (
                   <div className="space-y-2">
-                    {listing.hostel_details?.beds_available !== undefined && (
+                    {hostelDetails.beds_available !== undefined && (
                       <div>
                         <p className="text-sm text-muted-foreground mb-1">Beds Available</p>
-                        <p className="text-foreground">{listing.hostel_details.beds_available}</p>
+                        <p className="text-foreground">{hostelDetails.beds_available}</p>
                       </div>
                     )}
-                    {listing.hostel_details?.gender_policy && (
+                    {hostelDetails.gender_policy && (
                       <div>
                         <p className="text-sm text-muted-foreground mb-1">Gender Policy</p>
-                        <p className="text-foreground capitalize">{listing.hostel_details.gender_policy}</p>
+                        <p className="text-foreground capitalize">{hostelDetails.gender_policy}</p>
                       </div>
                     )}
-                    {listing.hostel_details?.amenities && listing.hostel_details.amenities.length > 0 && (
+                    {hostelDetails.amenities && hostelDetails.amenities.length > 0 && (
                       <div>
                         <p className="text-sm text-muted-foreground mb-1">Amenities</p>
                         <div className="flex flex-wrap gap-2">
-                          {listing.hostel_details.amenities.map((amenity, index) => (
+                          {hostelDetails.amenities.map((amenity, index) => (
                             <Badge key={index} variant="secondary">{amenity}</Badge>
                           ))}
                         </div>

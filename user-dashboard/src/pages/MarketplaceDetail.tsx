@@ -43,30 +43,74 @@ import { applyImageFallback, normalizeImageUrl } from '@/lib/image';
 
 
 // Similar products are loaded from API data to avoid stale local IDs.
+const parseObjectish = (value: any): Record<string, any> => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return {};
+
+  let current = value;
+  for (let i = 0; i < 2; i += 1) {
+    try {
+      const parsed = JSON.parse(current);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      if (typeof parsed === 'string') {
+        current = parsed;
+        continue;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+};
+
+const normalizeServiceDetails = (value: any) => {
+  const source = parseObjectish(value);
+  return {
+    pricing_model: source.pricing_model || source.pricingModel,
+    service_area: source.service_area || source.serviceArea,
+    availability: source.availability,
+  };
+};
+
+const normalizeHostelDetails = (value: any) => {
+  const source = parseObjectish(value);
+  const rawAmenities = source.amenities;
+  const normalizedAmenities = Array.isArray(rawAmenities)
+    ? rawAmenities
+    : (typeof rawAmenities === 'string'
+      ? rawAmenities.split(/[,\n;|]+/).map((entry: string) => entry.trim()).filter(Boolean)
+      : []);
+
+  return {
+    room_type: source.room_type || source.roomType,
+    beds_available: source.beds_available ?? source.bedsAvailable,
+    gender_policy: source.gender_policy || source.genderPolicy,
+    amenities: normalizedAmenities,
+  };
+};
+
 const getEffectiveListingKind = (listing: any): 'product' | 'service' | 'hostel' => {
   const rawKind = String(listing?.listing_kind || '').toLowerCase();
   if (rawKind === 'service' || rawKind === 'hostel') {
     return rawKind;
   }
 
-  const serviceDetails = listing?.service_details;
-  const hostelDetails = listing?.hostel_details;
+  const serviceDetails = normalizeServiceDetails(listing?.service_details);
+  const hostelDetails = normalizeHostelDetails(listing?.hostel_details);
   const hasServiceDetails = Boolean(
-    serviceDetails &&
-    (
-      serviceDetails.pricing_model ||
-      (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
-      (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
-    )
+    serviceDetails.pricing_model ||
+    (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
+    (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
   );
   const hasHostelDetails = Boolean(
-    hostelDetails &&
-    (
-      hostelDetails.room_type ||
-      Number(hostelDetails.beds_available || 0) > 0 ||
-      hostelDetails.gender_policy ||
-      (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
-    )
+    hostelDetails.room_type ||
+    Number(hostelDetails.beds_available || 0) > 0 ||
+    hostelDetails.gender_policy ||
+    (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
   );
 
   if (hasHostelDetails) return 'hostel';
@@ -102,6 +146,8 @@ const MarketplaceDetail = () => {
   const { toast } = useToast();
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
   const listingKind = getEffectiveListingKind(item);
+  const serviceDetails = normalizeServiceDetails(item?.service_details);
+  const hostelDetails = normalizeHostelDetails(item?.hostel_details);
   const pricingModelLabelMap: Record<string, string> = {
     per_hour: 'Per Hour',
     per_task_assignment: 'Per Task / Assignment',
@@ -740,21 +786,21 @@ const MarketplaceDetail = () => {
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <span className="text-sm text-muted-foreground">Room type</span>
-                        <p className="text-sm font-medium capitalize">{item.hostel_details?.room_type || 'N/A'}</p>
+                        <p className="text-sm font-medium capitalize">{hostelDetails.room_type || 'N/A'}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-sm text-muted-foreground">Beds available</span>
-                        <p className="text-sm font-medium">{item.hostel_details?.beds_available ?? 'N/A'}</p>
+                        <p className="text-sm font-medium">{hostelDetails.beds_available ?? 'N/A'}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-sm text-muted-foreground">Gender Policy</span>
-                        <p className="text-sm font-medium capitalize">{item.hostel_details?.gender_policy || 'N/A'}</p>
+                        <p className="text-sm font-medium capitalize">{hostelDetails.gender_policy || 'N/A'}</p>
                       </div>
                       <div className="space-y-2">
                         <span className="text-sm text-muted-foreground">Amenities</span>
-                        {item.hostel_details?.amenities && item.hostel_details.amenities.length > 0 ? (
+                        {hostelDetails.amenities && hostelDetails.amenities.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
-                            {item.hostel_details.amenities.map((amenity: string) => (
+                            {hostelDetails.amenities.map((amenity: string) => (
                               <Badge key={amenity} variant="secondary" className="text-xs">
                                 {amenity}
                               </Badge>
@@ -805,16 +851,16 @@ const MarketplaceDetail = () => {
                       <div className="space-y-1">
                         <span className="text-sm text-muted-foreground">Pricing model</span>
                         <p className="text-sm font-medium break-words">
-                          {pricingModelLabelMap[item.service_details?.pricing_model || ''] || item.service_details?.pricing_model || 'N/A'}
+                          {pricingModelLabelMap[serviceDetails.pricing_model || ''] || serviceDetails.pricing_model || 'N/A'}
                         </p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-sm text-muted-foreground">Service area</span>
-                        <p className="text-sm font-medium break-words">{item.service_details?.service_area || 'N/A'}</p>
+                        <p className="text-sm font-medium break-words">{serviceDetails.service_area || 'N/A'}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-sm text-muted-foreground">Availability</span>
-                        <p className="text-sm font-medium break-words">{item.service_details?.availability || 'N/A'}</p>
+                        <p className="text-sm font-medium break-words">{serviceDetails.availability || 'N/A'}</p>
                       </div>
                     </div>
                   </div>

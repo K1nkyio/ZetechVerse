@@ -86,30 +86,74 @@ const sortOptions = [
   { id: 'distance', label: 'Nearest to You', icon: MapPin }
 ];
 
+const parseObjectish = (value: any): Record<string, any> => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return {};
+
+  let current = value;
+  for (let i = 0; i < 2; i += 1) {
+    try {
+      const parsed = JSON.parse(current);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      if (typeof parsed === 'string') {
+        current = parsed;
+        continue;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+};
+
+const normalizeServiceDetails = (value: any) => {
+  const source = parseObjectish(value);
+  return {
+    pricing_model: source.pricing_model || source.pricingModel,
+    service_area: source.service_area || source.serviceArea,
+    availability: source.availability,
+  };
+};
+
+const normalizeHostelDetails = (value: any) => {
+  const source = parseObjectish(value);
+  const rawAmenities = source.amenities;
+  const normalizedAmenities = Array.isArray(rawAmenities)
+    ? rawAmenities
+    : (typeof rawAmenities === 'string'
+      ? rawAmenities.split(/[,\n;|]+/).map((entry: string) => entry.trim()).filter(Boolean)
+      : []);
+
+  return {
+    room_type: source.room_type || source.roomType,
+    beds_available: source.beds_available ?? source.bedsAvailable,
+    gender_policy: source.gender_policy || source.genderPolicy,
+    amenities: normalizedAmenities,
+  };
+};
+
 const getEffectiveListingKind = (listing: any): 'product' | 'service' | 'hostel' => {
   const rawKind = String(listing?.listing_kind || '').toLowerCase();
   if (rawKind === 'service' || rawKind === 'hostel') {
     return rawKind;
   }
 
-  const serviceDetails = listing?.service_details;
-  const hostelDetails = listing?.hostel_details;
+  const serviceDetails = normalizeServiceDetails(listing?.service_details);
+  const hostelDetails = normalizeHostelDetails(listing?.hostel_details);
   const hasServiceDetails = Boolean(
-    serviceDetails &&
-    (
-      serviceDetails.pricing_model ||
-      (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
-      (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
-    )
+    serviceDetails.pricing_model ||
+    (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
+    (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
   );
   const hasHostelDetails = Boolean(
-    hostelDetails &&
-    (
-      hostelDetails.room_type ||
-      Number(hostelDetails.beds_available || 0) > 0 ||
-      hostelDetails.gender_policy ||
-      (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
-    )
+    hostelDetails.room_type ||
+    Number(hostelDetails.beds_available || 0) > 0 ||
+    hostelDetails.gender_policy ||
+    (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
   );
 
   if (hasHostelDetails) return 'hostel';

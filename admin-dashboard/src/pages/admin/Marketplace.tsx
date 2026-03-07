@@ -35,6 +35,50 @@ import { useToast } from "@/hooks/use-toast";
 import { marketplaceApi, type MarketplaceListing } from "@/api/marketplace.api";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const parseObjectish = (value: unknown): Record<string, any> => {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, any>;
+  if (typeof value !== "string" || !value.trim()) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const getEffectiveListingKind = (listing: MarketplaceListing): "product" | "service" | "hostel" => {
+  const rawKind = String(listing.listing_kind || "").toLowerCase();
+  if (rawKind === "service" || rawKind === "hostel") return rawKind;
+
+  const serviceDetails = parseObjectish(listing.service_details);
+  const hostelDetails = parseObjectish(listing.hostel_details);
+
+  const hasServiceDetails = Boolean(
+    serviceDetails.pricing_model ||
+    serviceDetails.pricingModel ||
+    serviceDetails.service_area ||
+    serviceDetails.serviceArea ||
+    serviceDetails.availability
+  );
+  const hasHostelDetails = Boolean(
+    hostelDetails.room_type ||
+    hostelDetails.roomType ||
+    Number(hostelDetails.beds_available ?? hostelDetails.bedsAvailable ?? 0) > 0 ||
+    hostelDetails.gender_policy ||
+    hostelDetails.genderPolicy ||
+    (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
+  );
+
+  if (hasHostelDetails) return "hostel";
+  if (hasServiceDetails) return "service";
+
+  const categoryText = `${listing.category_name || ""} ${listing.category_slug || ""}`.toLowerCase();
+  if (categoryText.includes("hostel")) return "hostel";
+  if (categoryText.includes("service")) return "service";
+
+  return "product";
+};
+
 export default function AdminMarketplace() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -135,23 +179,29 @@ export default function AdminMarketplace() {
     {
       key: "title",
       header: "Title",
-      render: (listing) => (
-        <div className="max-w-xs">
-          <p className="font-medium text-foreground truncate">{listing.title}</p>
-          <p className="text-xs text-muted-foreground">
-            {(listing.listing_kind || "product")} | {listing.seller_full_name} | {listing.views_count} views
-          </p>
-        </div>
-      ),
+      render: (listing) => {
+        const listingKind = getEffectiveListingKind(listing);
+        return (
+          <div className="max-w-xs">
+            <p className="font-medium text-foreground truncate">{listing.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {listingKind} | {listing.seller_full_name} | {listing.views_count} views
+            </p>
+          </div>
+        );
+      },
     },
     {
       key: "listing_kind",
       header: "Type",
-      render: (listing) => (
-        <Badge variant="outline" className="capitalize">
-          {listing.listing_kind || "product"}
-        </Badge>
-      ),
+      render: (listing) => {
+        const listingKind = getEffectiveListingKind(listing);
+        return (
+          <Badge variant="outline" className="capitalize">
+            {listingKind}
+          </Badge>
+        );
+      },
     },
     {
       key: "price",
@@ -169,11 +219,14 @@ export default function AdminMarketplace() {
     {
       key: "condition",
       header: "Condition",
-      render: (listing) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary capitalize">
-          {listing.listing_kind === "product" ? (listing.condition || "N/A") : "N/A"}
-        </span>
-      ),
+      render: (listing) => {
+        const listingKind = getEffectiveListingKind(listing);
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary capitalize">
+            {listingKind === "product" ? (listing.condition || "N/A") : "N/A"}
+          </span>
+        );
+      },
     },
     {
       key: "status",
