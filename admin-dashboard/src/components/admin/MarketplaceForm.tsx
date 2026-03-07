@@ -38,21 +38,6 @@ const servicePricingModelOptions: Array<{ value: ServicePricingModel; label: str
   { value: "credit_token_system", label: "Credit / Token System" }
 ];
 
-const inferListingKindFromCategory = (
-  categories: Array<{ id: number; name: string; slug: string }>,
-  categoryId?: number
-): ListingKind => {
-  if (!categoryId) return "product";
-
-  const category = categories.find((item) => item.id === categoryId);
-  if (!category) return "product";
-
-  const text = `${category.name} ${category.slug}`.toLowerCase();
-  if (text.includes("service")) return "service";
-  if (text.includes("hostel")) return "hostel";
-  return "product";
-};
-
 interface MarketplaceFormProps {
   initialData?: MarketplaceListing;
   onSubmit: (data: CreateMarketplaceListingData) => Promise<void>;
@@ -104,17 +89,6 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
         const data = await marketplaceApi.getCategories();
         if (mounted) {
           setCategories(Array.isArray(data) ? data : []);
-          setFormData((prev) => {
-            if (!prev.category_id || initialData?.listing_kind) return prev;
-
-            const inferredKind = inferListingKindFromCategory(Array.isArray(data) ? data : [], prev.category_id);
-            if (prev.listing_kind === inferredKind) return prev;
-
-            return {
-              ...prev,
-              listing_kind: inferredKind,
-            };
-          });
         }
       } catch (error) {
         console.error("Failed to fetch marketplace categories:", error);
@@ -533,7 +507,6 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
                   setFormData({
                     ...formData,
                     category_id: categoryId,
-                    listing_kind: inferListingKindFromCategory(categories, categoryId),
                   });
                 }}
               >

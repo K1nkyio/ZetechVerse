@@ -86,6 +86,42 @@ const sortOptions = [
   { id: 'distance', label: 'Nearest to You', icon: MapPin }
 ];
 
+const getEffectiveListingKind = (listing: any): 'product' | 'service' | 'hostel' => {
+  const rawKind = String(listing?.listing_kind || '').toLowerCase();
+  if (rawKind === 'service' || rawKind === 'hostel') {
+    return rawKind;
+  }
+
+  const serviceDetails = listing?.service_details;
+  const hostelDetails = listing?.hostel_details;
+  const hasServiceDetails = Boolean(
+    serviceDetails &&
+    (
+      serviceDetails.pricing_model ||
+      (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
+      (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
+    )
+  );
+  const hasHostelDetails = Boolean(
+    hostelDetails &&
+    (
+      hostelDetails.room_type ||
+      Number(hostelDetails.beds_available || 0) > 0 ||
+      hostelDetails.gender_policy ||
+      (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
+    )
+  );
+
+  if (hasHostelDetails) return 'hostel';
+  if (hasServiceDetails) return 'service';
+
+  const categoryText = `${listing?.category_name || ''} ${listing?.category_slug || ''}`.toLowerCase();
+  if (categoryText.includes('hostel')) return 'hostel';
+  if (categoryText.includes('service')) return 'service';
+
+  return 'product';
+};
+
 const Marketplace = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -168,7 +204,7 @@ const Marketplace = () => {
     // Safe null checks for all listing properties
     const listingCategoryName = listing.category_name || '';
     const listingCategorySlug = listing.category_slug || (listingCategoryName ? listingCategoryName.toLowerCase().replace(/\s+/g, '-') : '');
-    const listingKind = String(listing.listing_kind || 'product').toLowerCase();
+    const listingKind = getEffectiveListingKind(listing);
     const listingCondition = listing.condition || '';
     const listingLocation = listing.location || '';
     const listingTitle = listing.title || '';
@@ -704,12 +740,14 @@ const Marketplace = () => {
         {/* Enhanced Listings Grid */}
         {!loading && !error && (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-            {sortedListings.map((listing: any) => (
-              <div
-                key={listing.id}
-                className="group block bg-card rounded-xl sm:rounded-2xl border border-border overflow-hidden hover:border-primary/50 hover:shadow-xl transition-all duration-300"
-              >
-                <Link to={`/marketplace/${listing.id}`}>
+            {sortedListings.map((listing: any) => {
+              const listingKind = getEffectiveListingKind(listing);
+              return (
+                <div
+                  key={listing.id}
+                  className="group block bg-card rounded-xl sm:rounded-2xl border border-border overflow-hidden hover:border-primary/50 hover:shadow-xl transition-all duration-300"
+                >
+                  <Link to={`/marketplace/${listing.id}`}>
                   {/* Image Section */}
                   <div className="relative aspect-square bg-muted overflow-hidden">
                   {listing.image_urls && listing.image_urls.length > 0 ? (
@@ -735,12 +773,12 @@ const Marketplace = () => {
 
                     {/* Condition Badge */}
                     <Badge
-                      variant={(listing.listing_kind || 'product') === 'product' && listing.condition === 'new' ? 'default' : 'secondary'}
+                      variant={listingKind === 'product' && listing.condition === 'new' ? 'default' : 'secondary'}
                       className="absolute top-2 sm:top-3 left-2 sm:left-3 capitalize text-xs"
                     >
-                      {(listing.listing_kind || 'product') === 'product'
+                      {listingKind === 'product'
                         ? (listing.condition?.replace('-', ' ') || 'Available')
-                        : String(listing.listing_kind || 'listing')}
+                        : listingKind}
                   </Badge>
                     {listing.status && String(listing.status).toLowerCase() !== 'active' && (
                       <Badge
@@ -907,9 +945,10 @@ const Marketplace = () => {
                       </Badge>
                     )}
                   </div>
-                </Link>
+                  </Link>
                 </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

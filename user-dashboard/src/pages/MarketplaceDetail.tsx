@@ -43,6 +43,41 @@ import { applyImageFallback, normalizeImageUrl } from '@/lib/image';
 
 
 // Similar products are loaded from API data to avoid stale local IDs.
+const getEffectiveListingKind = (listing: any): 'product' | 'service' | 'hostel' => {
+  const rawKind = String(listing?.listing_kind || '').toLowerCase();
+  if (rawKind === 'service' || rawKind === 'hostel') {
+    return rawKind;
+  }
+
+  const serviceDetails = listing?.service_details;
+  const hostelDetails = listing?.hostel_details;
+  const hasServiceDetails = Boolean(
+    serviceDetails &&
+    (
+      serviceDetails.pricing_model ||
+      (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
+      (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
+    )
+  );
+  const hasHostelDetails = Boolean(
+    hostelDetails &&
+    (
+      hostelDetails.room_type ||
+      Number(hostelDetails.beds_available || 0) > 0 ||
+      hostelDetails.gender_policy ||
+      (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
+    )
+  );
+
+  if (hasHostelDetails) return 'hostel';
+  if (hasServiceDetails) return 'service';
+
+  const categoryText = `${listing?.category_name || ''} ${listing?.category_slug || ''}`.toLowerCase();
+  if (categoryText.includes('hostel')) return 'hostel';
+  if (categoryText.includes('service')) return 'service';
+
+  return 'product';
+};
 
 const MarketplaceDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -66,7 +101,7 @@ const MarketplaceDetail = () => {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const { toast } = useToast();
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
-  const listingKind = item?.listing_kind || 'product';
+  const listingKind = getEffectiveListingKind(item);
   const pricingModelLabelMap: Record<string, string> = {
     per_hour: 'Per Hour',
     per_task_assignment: 'Per Task / Assignment',
@@ -513,7 +548,7 @@ const MarketplaceDetail = () => {
                   <Badge variant="secondary" className="capitalize">
                     {item.category_name || item.category}
                   </Badge>
-                  {item.condition && (
+                  {listingKind === 'product' && item.condition && (
                     <Badge variant={item.condition === 'new' ? 'default' : 'outline'} className="capitalize">
                       {item.condition.replace('-', ' ')}
                     </Badge>
