@@ -1,10 +1,21 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import useLayeredBack from "@/hooks/useLayeredBack";
 
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
+// Dialog wrapper that automatically registers with layered back handling
+const Dialog = ({ children, open, onOpenChange, ...props }: any) => {
+  // If the consumer provides controlled `open` and `onOpenChange`, register the layer
+  useLayeredBack(open, onOpenChange as ((v: boolean) => void) | undefined);
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props}>
+      {children}
+    </DialogPrimitive.Root>
+  );
+};
 
 const DialogTrigger = DialogPrimitive.Trigger;
 

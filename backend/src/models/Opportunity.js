@@ -34,6 +34,19 @@ const ensureResponsibilitiesColumn = async () => {
 };
 
 class Opportunity {
+  // Close opportunity if deadline passed and status is still active
+  static async closeIfExpiredIfActive(opportunity) {
+    if (!opportunity) return;
+    try {
+      if (this.isExpired(opportunity.application_deadline) && opportunity.status === 'active') {
+        await run('UPDATE opportunities SET status = ? WHERE id = ?', ['closed', opportunity.id]);
+        opportunity.status = 'closed';
+      }
+    } catch (err) {
+      console.error('Failed to auto-close expired opportunity id=', opportunity.id, err);
+    }
+  }
+
   // Create a new opportunity
   static async create(opportunityData) {
     await ensureResponsibilitiesColumn();
@@ -107,6 +120,8 @@ class Opportunity {
       // Add computed fields
       opportunity.days_until_deadline = this.calculateDaysUntilDeadline(opportunity.application_deadline);
       opportunity.is_expired = this.isExpired(opportunity.application_deadline);
+      // Auto-close if expired
+      await this.closeIfExpiredIfActive(opportunity);
     }
 
     return opportunity;
@@ -206,6 +221,13 @@ class Opportunity {
       days_until_deadline: this.calculateDaysUntilDeadline(opp.application_deadline),
       is_expired: this.isExpired(opp.application_deadline)
     }));
+
+    // Auto-close any expired active opportunities before returning
+    for (const opp of processedOpportunities) {
+      await this.closeIfExpiredIfActive(opp);
+      // refresh is_expired in case status changed
+      opp.is_expired = this.isExpired(opp.application_deadline);
+    }
 
     // Count query for pagination
     const countSql = `SELECT COUNT(*) as total FROM opportunities o ${whereClause}`;
@@ -385,6 +407,12 @@ class Opportunity {
       is_expired: this.isExpired(opp.application_deadline)
     }));
 
+    // Auto-close expired active opportunities
+    for (const opp of processedOpportunities) {
+      await this.closeIfExpiredIfActive(opp);
+      opp.is_expired = this.isExpired(opp.application_deadline);
+    }
+
     // Count query
     const countSql = `SELECT COUNT(*) as total FROM opportunities WHERE ${whereClause}`;
     const countParams = params.slice(0, -2);
@@ -419,7 +447,7 @@ class Opportunity {
 
     const opportunities = await all(sql, [limit]);
 
-    return opportunities.map(opp => ({
+    const mapped = opportunities.map(opp => ({
       ...opp,
       requirements: JSON.parse(opp.requirements || '[]'),
       benefits: JSON.parse(opp.benefits || '[]'),
@@ -427,6 +455,14 @@ class Opportunity {
       days_until_deadline: this.calculateDaysUntilDeadline(opp.application_deadline),
       is_expired: this.isExpired(opp.application_deadline)
     }));
+
+    // Ensure expired opportunities are closed
+    for (const opp of mapped) {
+      await this.closeIfExpiredIfActive(opp);
+      opp.is_expired = this.isExpired(opp.application_deadline);
+    }
+
+    return mapped;
   }
 
   // Helper methods

@@ -40,14 +40,70 @@ const opportunityValidation = [
     .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Invalid date format for application deadline'),
+  body('application_deadline')
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      if (!value) return true;
+      const deadline = new Date(value);
+      const now = new Date();
+      if (isNaN(deadline.getTime())) throw new Error('Invalid date for application deadline');
+      // Must not be in the past
+      if (deadline < now) {
+        throw new Error('Application deadline cannot be in the past');
+      }
+      // Must be at least 24 hours from now
+      const diffMs = deadline - now;
+      if (diffMs < 24 * 60 * 60 * 1000) {
+        throw new Error('Application deadline must be at least one day in the future');
+      }
+      return true;
+    }),
   body('start_date')
     .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Invalid date format for start date'),
+  body('start_date')
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value, { req }) => {
+      if (!value) return true;
+      const start = new Date(value);
+      if (isNaN(start.getTime())) throw new Error('Invalid start date');
+      const deadlineVal = req.body.application_deadline;
+      if (deadlineVal) {
+        const deadline = new Date(deadlineVal);
+        if (!isNaN(deadline.getTime()) && start <= deadline) {
+          throw new Error('Start date must be after the application deadline');
+        }
+      }
+      return true;
+    }),
   body('end_date')
     .optional({ nullable: true, checkFalsy: true })
     .isISO8601()
     .withMessage('Invalid date format for end date'),
+  body('end_date')
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value, { req }) => {
+      if (!value) return true;
+      const end = new Date(value);
+      if (isNaN(end.getTime())) throw new Error('Invalid end date');
+      const startVal = req.body.start_date;
+      if (startVal) {
+        const start = new Date(startVal);
+        if (!isNaN(start.getTime())) {
+          // End must be after start
+          if (end <= start) {
+            throw new Error('End date must be after the start date');
+          }
+          // Duration must not exceed two years
+          const twoYearsMs = 2 * 365 * 24 * 60 * 60 * 1000; // approximate two years
+          if (end - start > twoYearsMs) {
+            throw new Error('Opportunity duration exceeds the allowed two year limit');
+          }
+        }
+      }
+      return true;
+    }),
   body('salary_min')
     .optional({ checkFalsy: true })
     .isFloat({ min: 0 })

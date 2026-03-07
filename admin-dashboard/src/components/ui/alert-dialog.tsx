@@ -1,10 +1,18 @@
 import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
+import useLayeredBack from "@/hooks/useLayeredBack";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+const AlertDialog = ({ children, open, onOpenChange, ...props }: any) => {
+  useLayeredBack(open, onOpenChange as ((v: boolean) => void) | undefined);
+  return (
+    <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props}>
+      {children}
+    </AlertDialogPrimitive.Root>
+  );
+};
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 

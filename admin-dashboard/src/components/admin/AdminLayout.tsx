@@ -56,7 +56,9 @@ export function AdminLayout({ children, variant }: AdminLayoutProps) {
       />
       
       <header
-        className="fixed top-0 left-0 right-0 h-14 sm:h-16 bg-card border-b border-border flex items-center justify-between px-3 sm:px-6 transition-all duration-300 z-30"
+        className={`fixed top-0 right-0 h-14 sm:h-16 bg-card border-b border-border flex items-center justify-between px-3 sm:px-6 transition-all duration-300 z-30 ${
+          isMobile ? "left-0" : (sidebarCollapsed ? "lg:left-[72px]" : "lg:left-64")
+        }`}
       >
         <AdminHeader
           variant={variant}
