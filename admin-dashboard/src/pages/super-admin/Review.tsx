@@ -361,40 +361,40 @@ export default function SuperAdminReview() {
                         rows={3}
                       />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <Button
-                        className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+                        className="w-full sm:flex-1 bg-success hover:bg-success/90 text-success-foreground whitespace-normal break-words leading-snug h-auto py-2.5"
                         onClick={handleApprove}
                         disabled={actionLoading}
                       >
                         {actionLoading ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                         ) : (
-                          <CheckCircle className="mr-2 h-4 w-4" />
+                          <CheckCircle className="mr-2 h-4 w-4 shrink-0" />
                         )}
-                        Approve & Publish
+                        <span>Approve & Publish</span>
                       </Button>
                       <Button
                         variant="outline"
-                        className="flex-1"
+                        className="w-full sm:flex-1 whitespace-normal break-words leading-snug h-auto py-2.5"
                         onClick={handleEditFirst}
                         disabled={actionLoading}
                       >
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit First
+                        <Edit className="mr-2 h-4 w-4 shrink-0" />
+                        <span>Edit First</span>
                       </Button>
                       <Button
                         variant="destructive"
-                        className="flex-1"
+                        className="w-full sm:flex-1 whitespace-normal break-words leading-snug h-auto py-2.5"
                         onClick={handleReject}
                         disabled={!feedback.trim() || actionLoading}
                       >
                         {actionLoading ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                         ) : (
-                          <XCircle className="mr-2 h-4 w-4" />
+                          <XCircle className="mr-2 h-4 w-4 shrink-0" />
                         )}
-                        Reject
+                        <span>Reject</span>
                       </Button>
                     </div>
                   </CardContent>

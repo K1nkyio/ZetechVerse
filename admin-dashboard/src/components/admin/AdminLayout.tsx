@@ -37,7 +37,7 @@ export function AdminLayout({ children, variant }: AdminLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="admin-portal min-h-screen bg-muted/30">
       {/* Mobile sidebar overlay */}
       {isMobile && mobileSidebarOpen && (
         <div 

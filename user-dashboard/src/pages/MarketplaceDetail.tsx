@@ -40,124 +40,11 @@ import { useAuthContext } from '@/contexts/auth-context';
 import { useCartWishlistContext } from '@/contexts/cart-wishlist-context';
 import { trackEvent } from '@/lib/analytics';
 import { applyImageFallback, normalizeImageUrl } from '@/lib/image';
-
-
-// Similar products are loaded from API data to avoid stale local IDs.
-const parseObjectish = (value: any): Record<string, any> => {
-  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
-  if (typeof value !== 'string' || !value.trim()) return {};
-
-  let current = value;
-  for (let i = 0; i < 2; i += 1) {
-    try {
-      const parsed = JSON.parse(current);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return parsed;
-      }
-      if (typeof parsed === 'string') {
-        current = parsed;
-        continue;
-      }
-      return {};
-    } catch {
-      return {};
-    }
-  }
-
-  return {};
-};
-
-const normalizeServiceDetails = (value: any) => {
-  const parsedSource = parseObjectish(value);
-  const source = parsedSource.service_details && typeof parsedSource.service_details === 'object'
-    ? parsedSource.service_details
-    : parsedSource;
-  return {
-    pricing_model:
-      source.pricing_model ||
-      source.pricingModel ||
-      source.pricing ||
-      source.pricing_type ||
-      source.pricingType ||
-      source.rate_model ||
-      source.rateModel,
-    service_area:
-      source.service_area ||
-      source.serviceArea ||
-      source.area ||
-      source.coverage_area ||
-      source.coverageArea,
-    availability:
-      source.availability ||
-      source.service_availability ||
-      source.serviceAvailability ||
-      source.schedule,
-  };
-};
-
-const normalizeHostelDetails = (value: any) => {
-  const parsedSource = parseObjectish(value);
-  const source = parsedSource.hostel_details && typeof parsedSource.hostel_details === 'object'
-    ? parsedSource.hostel_details
-    : parsedSource;
-  const rawAmenities = source.amenities || source.facilities || source.facility;
-  const normalizedAmenities = Array.isArray(rawAmenities)
-    ? rawAmenities
-    : (typeof rawAmenities === 'string'
-      ? rawAmenities.split(/[,\n;|]+/).map((entry: string) => entry.trim()).filter(Boolean)
-      : []);
-
-  return {
-    room_type:
-      source.room_type ||
-      source.roomType ||
-      source.type_of_room ||
-      source.typeOfRoom ||
-      source.room,
-    beds_available:
-      source.beds_available ??
-      source.bedsAvailable ??
-      source.beds ??
-      source.bed_count ??
-      source.bedCount,
-    gender_policy:
-      source.gender_policy ||
-      source.genderPolicy ||
-      source.gender ||
-      source.policy,
-    amenities: normalizedAmenities,
-  };
-};
-
-const getEffectiveListingKind = (listing: any): 'product' | 'service' | 'hostel' => {
-  const rawKind = String(listing?.listing_kind || '').toLowerCase();
-  if (rawKind === 'service' || rawKind === 'hostel') {
-    return rawKind;
-  }
-
-  const serviceDetails = normalizeServiceDetails(listing?.service_details);
-  const hostelDetails = normalizeHostelDetails(listing?.hostel_details);
-  const hasServiceDetails = Boolean(
-    serviceDetails.pricing_model ||
-    (typeof serviceDetails.service_area === 'string' && serviceDetails.service_area.trim()) ||
-    (typeof serviceDetails.availability === 'string' && serviceDetails.availability.trim())
-  );
-  const hasHostelDetails = Boolean(
-    hostelDetails.room_type ||
-    Number(hostelDetails.beds_available || 0) > 0 ||
-    hostelDetails.gender_policy ||
-    (Array.isArray(hostelDetails.amenities) && hostelDetails.amenities.length > 0)
-  );
-
-  if (hasHostelDetails) return 'hostel';
-  if (hasServiceDetails) return 'service';
-
-  const categoryText = `${listing?.category_name || ''} ${listing?.category_slug || ''}`.toLowerCase();
-  if (categoryText.includes('hostel')) return 'hostel';
-  if (categoryText.includes('service')) return 'service';
-
-  return 'product';
-};
+import {
+  getEffectiveListingKind,
+  normalizeHostelDetails,
+  normalizeServiceDetails,
+} from '@/lib/marketplace';
 
 const MarketplaceDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -182,8 +69,8 @@ const MarketplaceDetail = () => {
   const { toast } = useToast();
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
   const listingKind = getEffectiveListingKind(item);
-  const serviceDetails = normalizeServiceDetails(item?.service_details);
-  const hostelDetails = normalizeHostelDetails(item?.hostel_details);
+  const serviceDetails = normalizeServiceDetails(item);
+  const hostelDetails = normalizeHostelDetails(item);
   const pricingModelLabelMap: Record<string, string> = {
     per_hour: 'Per Hour',
     per_task_assignment: 'Per Task / Assignment',

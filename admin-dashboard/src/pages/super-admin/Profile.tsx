@@ -230,8 +230,8 @@ export default function SuperAdminProfile() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-6">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+              <div className="relative self-center sm:self-auto">
                 <Avatar className="h-28 w-28 border-4 border-purple-200">
                   <AvatarImage src={formData.avatar_url || profile.avatar_url} />
                   <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-3xl">
@@ -257,23 +257,23 @@ export default function SuperAdminProfile() {
                   {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                 </Button>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="font-bold text-foreground text-xl">{profile.username}</p>
-                <p className="text-sm text-purple-600 font-medium flex items-center gap-1">
-                  <Crown className="h-4 w-4" />
+                <p className="text-sm text-purple-600 font-medium flex items-center gap-1 flex-wrap">
+                  <Crown className="h-4 w-4 shrink-0" />
                   System Administrator
                 </p>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleAvatarChange}
                     disabled={uploadingAvatar}
-                    className="border-purple-200 hover:bg-purple-50"
+                    className="w-full sm:w-auto border-purple-200 hover:bg-purple-50"
                   >
                     {uploadingAvatar ? "Uploading..." : "Change Photo"}
                   </Button>
-                  <div className="px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 rounded-md">
+                  <div className="inline-flex w-full sm:w-auto justify-center sm:justify-start px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 rounded-md">
                     <span className="text-xs font-medium text-purple-700">Highest Privilege Level</span>
                   </div>
                 </div>

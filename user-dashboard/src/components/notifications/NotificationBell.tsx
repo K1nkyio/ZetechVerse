@@ -28,6 +28,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     // Only fetch notifications if user is authenticated
@@ -210,6 +211,7 @@ export function NotificationBell() {
     const route = typeRouteMap[notification.type];
     if (!route) return;
 
+    setOpen(false);
     if (notification.related_id && route.detail) {
       navigate(`${route.detail}/${notification.related_id}`);
     } else {
@@ -221,8 +223,21 @@ export function NotificationBell() {
     trackEvent('notification_bell_open', { type: notification.type, id: notification.id });
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen && isAuthenticated) {
+      void fetchUnreadCount();
+      void fetchNotifications();
+    }
+  };
+
+  const handleViewAll = () => {
+    setOpen(false);
+    navigate('/notifications');
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
           <Bell className="h-4 w-4" />
@@ -239,8 +254,8 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[min(20rem,calc(100vw-1rem))] sm:w-80">
-        <DropdownMenuLabel className="flex items-center justify-between">
+      <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-1rem))] sm:w-80">
+        <DropdownMenuLabel className="flex flex-wrap items-center justify-between gap-2">
           <span>Notifications</span>
           {unreadCount > 0 && (
             <Button
@@ -256,7 +271,7 @@ export function NotificationBell() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        <ScrollArea className="h-80">
+        <ScrollArea className="h-[min(20rem,60vh)] sm:h-80">
           {!isAuthenticated ? (
             <div className="p-4 text-center text-sm text-foreground/75 dark:text-foreground/85">
               <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -336,11 +351,11 @@ export function NotificationBell() {
           )}
         </ScrollArea>
 
-        {isAuthenticated && notifications.length > 0 && (
+        {isAuthenticated && (
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => navigate('/notifications')}>
+              <Button variant="ghost" size="sm" className="w-full text-xs" onClick={handleViewAll}>
                 View all notifications
               </Button>
             </div>

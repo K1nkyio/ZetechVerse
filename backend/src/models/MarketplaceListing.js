@@ -111,20 +111,27 @@ const getFirstValueByKeys = (source, keys) => {
   return undefined;
 };
 
-const unwrapDetailsSource = (value, preferredNestedKey) => {
+const mergeDetailSources = (value, preferredNestedKeys = []) => {
   const parsedSource = parseJsonObject(value);
-  const nested = parsedSource[preferredNestedKey];
-  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
-    return nested;
+  const merged = { ...parsedSource };
+  const sharedDetails = parseJsonObject(parsedSource.details);
+
+  if (Object.keys(sharedDetails).length > 0) {
+    Object.assign(merged, sharedDetails);
   }
-  if (parsedSource.details && typeof parsedSource.details === 'object' && !Array.isArray(parsedSource.details)) {
-    return parsedSource.details;
+
+  for (const key of preferredNestedKeys) {
+    const nested = parseJsonObject(parsedSource[key]);
+    if (Object.keys(nested).length > 0) {
+      Object.assign(merged, nested);
+    }
   }
-  return parsedSource;
+
+  return merged;
 };
 
 const normalizeServiceDetails = (value) => {
-  const source = unwrapDetailsSource(value, 'service_details');
+  const source = mergeDetailSources(value, ['service_details', 'serviceDetails']);
   const normalized = {};
 
   const pricingModel = asTrimmedString(getFirstValueByKeys(source, [
@@ -145,7 +152,7 @@ const normalizeServiceDetails = (value) => {
 };
 
 const normalizeHostelDetails = (value) => {
-  const source = unwrapDetailsSource(value, 'hostel_details');
+  const source = mergeDetailSources(value, ['hostel_details', 'hostelDetails']);
   const normalized = {};
 
   const roomType = asTrimmedString(getFirstValueByKeys(source, [

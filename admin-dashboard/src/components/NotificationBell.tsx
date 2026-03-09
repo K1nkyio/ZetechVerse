@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { notificationsApi, type Notification } from "@/api/notifications.api";
 import { apiClient } from "@/api/base";
+import { useNavigate } from "react-router-dom";
 
 interface NotificationBellProps {
   variant?: "admin" | "super-admin";
@@ -20,10 +21,13 @@ interface NotificationBellProps {
 
 export function NotificationBell({ variant = "admin" }: NotificationBellProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
   const hasToken = () => !!apiClient.getToken();
+  const notificationsRoute = variant === "super-admin" ? "/super-admin/notifications" : "/admin/notifications";
 
   useEffect(() => {
     if (!hasToken()) {
@@ -190,8 +194,21 @@ export function NotificationBell({ variant = "admin" }: NotificationBellProps) {
     }
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen && hasToken()) {
+      void fetchUnreadCount();
+      void fetchNotifications();
+    }
+  };
+
+  const handleViewAll = () => {
+    setOpen(false);
+    navigate(notificationsRoute);
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
@@ -205,8 +222,8 @@ export function NotificationBell({ variant = "admin" }: NotificationBellProps) {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel className="flex items-center justify-between">
+      <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-1rem))] sm:w-80">
+        <DropdownMenuLabel className="flex flex-wrap items-center justify-between gap-2">
           <span>Notifications</span>
           {unreadCount > 0 && (
             <Button
@@ -222,7 +239,7 @@ export function NotificationBell({ variant = "admin" }: NotificationBellProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        <ScrollArea className="h-80">
+        <ScrollArea className="h-[min(20rem,60vh)] sm:h-80">
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Loading notifications...
@@ -284,11 +301,11 @@ export function NotificationBell({ variant = "admin" }: NotificationBellProps) {
           )}
         </ScrollArea>
 
-        {notifications.length > 0 && (
+        {hasToken() && (
           <>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button variant="ghost" size="sm" className="w-full text-xs">
+              <Button variant="ghost" size="sm" className="w-full text-xs" onClick={handleViewAll}>
                 View all notifications
               </Button>
             </div>

@@ -154,6 +154,39 @@
   .badge-status {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
+
+  /* Slightly reduce typography intensity across admin/super-admin surfaces. */
+  .admin-portal .text-3xl {
+    font-size: 1.65rem;
+    line-height: 2rem;
+  }
+
+  .admin-portal .text-2xl {
+    font-size: 1.35rem;
+    line-height: 1.85rem;
+  }
+
+  .admin-portal .text-xl {
+    font-size: 1.125rem;
+    line-height: 1.6rem;
+  }
+
+  .admin-portal .text-lg {
+    font-size: 1rem;
+    line-height: 1.45rem;
+  }
+
+  @media (max-width: 640px) {
+    .admin-portal .text-3xl {
+      font-size: 1.5rem;
+      line-height: 1.9rem;
+    }
+
+    .admin-portal .text-2xl {
+      font-size: 1.25rem;
+      line-height: 1.7rem;
+    }
+  }
 }
 
 @layer utilities {
