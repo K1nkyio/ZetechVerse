@@ -87,7 +87,14 @@ const normalizeAmenities = (value: unknown) => {
 };
 
 export const normalizeServiceDetails = (value: unknown) => {
-  const source = mergeDetailSources(value, ['service_details', 'serviceDetails']);
+  const source = mergeDetailSources(value, [
+    'service_details',
+    'serviceDetails',
+    'service_setup',
+    'serviceSetup',
+    'service',
+    'serviceInfo'
+  ]);
 
   return {
     pricing_model: asTrimmedString(getFirstValueByKeys(source, [
@@ -118,7 +125,18 @@ export const normalizeServiceDetails = (value: unknown) => {
 };
 
 export const normalizeHostelDetails = (value: unknown) => {
-  const source = mergeDetailSources(value, ['hostel_details', 'hostelDetails']);
+  const source = mergeDetailSources(value, [
+    'hostel_details',
+    'hostelDetails',
+    'hostel_setup',
+    'hostelSetup',
+    'accommodation_setup',
+    'accommodationSetup',
+    'accomodation_setup',
+    'accomodationSetup',
+    'accommodation',
+    'accomodation'
+  ]);
   const bedsAvailableRaw = getFirstValueByKeys(source, [
     'beds_available',
     'bedsAvailable',

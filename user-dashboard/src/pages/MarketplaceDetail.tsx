@@ -69,8 +69,8 @@ const MarketplaceDetail = () => {
   const { toast } = useToast();
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
   const listingKind = getEffectiveListingKind(item);
-  const serviceDetails = normalizeServiceDetails(item);
-  const hostelDetails = normalizeHostelDetails(item);
+  const serviceDetails = normalizeServiceDetails(item?.service_details ?? item);
+  const hostelDetails = normalizeHostelDetails(item?.hostel_details ?? item);
   const pricingModelLabelMap: Record<string, string> = {
     per_hour: 'Per Hour',
     per_task_assignment: 'Per Task / Assignment',

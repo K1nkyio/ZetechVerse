@@ -47,6 +47,34 @@ const parseMaybeJsonObject = (value) => {
   }
 };
 
+const getFirstDefinedValue = (source, keys) => {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return undefined;
+  for (const key of keys) {
+    if (source[key] !== undefined && source[key] !== null && source[key] !== '') {
+      return source[key];
+    }
+  }
+  return undefined;
+};
+
+const buildDetailObject = (source, wrappers, fieldMap) => {
+  const detailSources = [
+    ...wrappers.map((key) => parseMaybeJsonObject(source[key])),
+  ].filter((value) => value && typeof value === 'object' && !Array.isArray(value));
+
+  const merged = detailSources.reduce((acc, value) => ({ ...acc, ...value }), {});
+
+  for (const [targetKey, aliases] of Object.entries(fieldMap)) {
+    if (merged[targetKey] !== undefined) continue;
+    const value = getFirstDefinedValue(source, aliases);
+    if (value !== undefined) {
+      merged[targetKey] = value;
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
+};
+
 const normalizeListingPayload = (req, _res, next) => {
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
     return next();
@@ -78,6 +106,41 @@ const normalizeListingPayload = (req, _res, next) => {
   }
   if (body.hostel_details === undefined && body.hostelDetails !== undefined) {
     body.hostel_details = body.hostelDetails;
+  }
+
+  if (body.service_details === undefined) {
+    body.service_details = buildDetailObject(
+      body,
+      ['serviceDetails', 'service_setup', 'serviceSetup', 'service', 'serviceInfo'],
+      {
+        pricing_model: ['pricing_model', 'pricingModel', 'pricing', 'pricing_type', 'pricingType', 'rate_model', 'rateModel'],
+        service_area: ['service_area', 'serviceArea', 'area', 'coverage_area', 'coverageArea'],
+        availability: ['availability', 'service_availability', 'serviceAvailability', 'schedule']
+      }
+    );
+  }
+
+  if (body.hostel_details === undefined) {
+    body.hostel_details = buildDetailObject(
+      body,
+      [
+        'hostelDetails',
+        'hostel_setup',
+        'hostelSetup',
+        'accommodation_setup',
+        'accommodationSetup',
+        'accomodation_setup',
+        'accomodationSetup',
+        'accommodation',
+        'accomodation'
+      ],
+      {
+        room_type: ['room_type', 'roomType', 'type_of_room', 'typeOfRoom', 'room'],
+        beds_available: ['beds_available', 'bedsAvailable', 'beds', 'bed_count', 'bedCount', 'available_beds'],
+        gender_policy: ['gender_policy', 'genderPolicy', 'gender', 'policy'],
+        amenities: ['amenities', 'facilities', 'facility']
+      }
+    );
   }
 
   body.service_details = parseMaybeJsonObject(body.service_details);

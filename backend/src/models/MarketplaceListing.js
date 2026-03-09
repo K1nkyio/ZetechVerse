@@ -131,7 +131,14 @@ const mergeDetailSources = (value, preferredNestedKeys = []) => {
 };
 
 const normalizeServiceDetails = (value) => {
-  const source = mergeDetailSources(value, ['service_details', 'serviceDetails']);
+  const source = mergeDetailSources(value, [
+    'service_details',
+    'serviceDetails',
+    'service_setup',
+    'serviceSetup',
+    'service',
+    'serviceInfo'
+  ]);
   const normalized = {};
 
   const pricingModel = asTrimmedString(getFirstValueByKeys(source, [
@@ -152,7 +159,18 @@ const normalizeServiceDetails = (value) => {
 };
 
 const normalizeHostelDetails = (value) => {
-  const source = mergeDetailSources(value, ['hostel_details', 'hostelDetails']);
+  const source = mergeDetailSources(value, [
+    'hostel_details',
+    'hostelDetails',
+    'hostel_setup',
+    'hostelSetup',
+    'accommodation_setup',
+    'accommodationSetup',
+    'accomodation_setup',
+    'accomodationSetup',
+    'accommodation',
+    'accomodation'
+  ]);
   const normalized = {};
 
   const roomType = asTrimmedString(getFirstValueByKeys(source, [

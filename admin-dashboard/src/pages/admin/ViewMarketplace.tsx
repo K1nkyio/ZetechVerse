@@ -23,9 +23,13 @@ const parseObjectish = (value: unknown): Record<string, any> => {
 
 const normalizeServiceDetails = (value: unknown) => {
   const parsedSource = parseObjectish(value);
-  const source = parsedSource.service_details && typeof parsedSource.service_details === "object"
-    ? parsedSource.service_details
-    : parsedSource;
+  const source =
+    (parsedSource.service_details && typeof parsedSource.service_details === "object" && parsedSource.service_details) ||
+    (parsedSource.serviceDetails && typeof parsedSource.serviceDetails === "object" && parsedSource.serviceDetails) ||
+    (parsedSource.service_setup && typeof parsedSource.service_setup === "object" && parsedSource.service_setup) ||
+    (parsedSource.serviceSetup && typeof parsedSource.serviceSetup === "object" && parsedSource.serviceSetup) ||
+    (parsedSource.service && typeof parsedSource.service === "object" && parsedSource.service) ||
+    parsedSource;
   return {
     pricing_model:
       source.pricing_model ||
@@ -51,9 +55,16 @@ const normalizeServiceDetails = (value: unknown) => {
 
 const normalizeHostelDetails = (value: unknown) => {
   const parsedSource = parseObjectish(value);
-  const source = parsedSource.hostel_details && typeof parsedSource.hostel_details === "object"
-    ? parsedSource.hostel_details
-    : parsedSource;
+  const source =
+    (parsedSource.hostel_details && typeof parsedSource.hostel_details === "object" && parsedSource.hostel_details) ||
+    (parsedSource.hostelDetails && typeof parsedSource.hostelDetails === "object" && parsedSource.hostelDetails) ||
+    (parsedSource.hostel_setup && typeof parsedSource.hostel_setup === "object" && parsedSource.hostel_setup) ||
+    (parsedSource.hostelSetup && typeof parsedSource.hostelSetup === "object" && parsedSource.hostelSetup) ||
+    (parsedSource.accommodation_setup && typeof parsedSource.accommodation_setup === "object" && parsedSource.accommodation_setup) ||
+    (parsedSource.accommodationSetup && typeof parsedSource.accommodationSetup === "object" && parsedSource.accommodationSetup) ||
+    (parsedSource.accomodation_setup && typeof parsedSource.accomodation_setup === "object" && parsedSource.accomodation_setup) ||
+    (parsedSource.accomodationSetup && typeof parsedSource.accomodationSetup === "object" && parsedSource.accomodationSetup) ||
+    parsedSource;
   return {
     room_type:
       source.room_type ||
