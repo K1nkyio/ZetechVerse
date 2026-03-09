@@ -22,7 +22,8 @@
 
     "delete-user": "node scripts/delete-user.js",
 
-    "migrate-data": "node scripts/migrate-sqlite-to-postgresql.js"
+    "migrate-data": "node scripts/migrate-sqlite-to-postgresql.js",
+    "check-marketplace-details": "node scripts/check-marketplace-details.js"
 
   },
 
