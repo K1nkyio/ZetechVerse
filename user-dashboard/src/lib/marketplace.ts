@@ -96,31 +96,37 @@ export const normalizeServiceDetails = (value: unknown) => {
     'serviceInfo'
   ]);
 
+  const pricingModel = asTrimmedString(getFirstValueByKeys(source, [
+    'pricing_model',
+    'pricingModel',
+    'pricing',
+    'pricing_type',
+    'pricingType',
+    'rate_model',
+    'rateModel',
+    'pricing model'
+  ]));
+
+  const serviceArea = asTrimmedString(getFirstValueByKeys(source, [
+    'service_area',
+    'serviceArea',
+    'area',
+    'coverage_area',
+    'coverageArea',
+    'service area'
+  ]));
+
+  const availability = asTrimmedString(getFirstValueByKeys(source, [
+    'availability',
+    'service_availability',
+    'serviceAvailability',
+    'schedule'
+  ]));
+
   return {
-    pricing_model: asTrimmedString(getFirstValueByKeys(source, [
-      'pricing_model',
-      'pricingModel',
-      'pricing',
-      'pricing_type',
-      'pricingType',
-      'rate_model',
-      'rateModel',
-      'pricing model'
-    ])),
-    service_area: asTrimmedString(getFirstValueByKeys(source, [
-      'service_area',
-      'serviceArea',
-      'area',
-      'coverage_area',
-      'coverageArea',
-      'service area'
-    ])),
-    availability: asTrimmedString(getFirstValueByKeys(source, [
-      'availability',
-      'service_availability',
-      'serviceAvailability',
-      'schedule'
-    ])),
+    pricing_model: pricingModel,
+    service_area: serviceArea,
+    availability: availability,
   };
 };
 
@@ -137,6 +143,16 @@ export const normalizeHostelDetails = (value: unknown) => {
     'accommodation',
     'accomodation'
   ]);
+
+  const roomType = asTrimmedString(getFirstValueByKeys(source, [
+    'room_type',
+    'roomType',
+    'type_of_room',
+    'typeOfRoom',
+    'room',
+    'room type'
+  ]));
+
   const bedsAvailableRaw = getFirstValueByKeys(source, [
     'beds_available',
     'bedsAvailable',
@@ -146,29 +162,27 @@ export const normalizeHostelDetails = (value: unknown) => {
     'beds available'
   ]);
   const numericBeds = Number(bedsAvailableRaw);
+  const bedsAvailable = Number.isFinite(numericBeds) && numericBeds > 0 ? numericBeds : undefined;
+
+  const genderPolicy = asTrimmedString(getFirstValueByKeys(source, [
+    'gender_policy',
+    'genderPolicy',
+    'gender',
+    'policy',
+    'gender policy'
+  ]));
+
+  const amenities = normalizeAmenities(getFirstValueByKeys(source, [
+    'amenities',
+    'facilities',
+    'facility'
+  ]));
 
   return {
-    room_type: asTrimmedString(getFirstValueByKeys(source, [
-      'room_type',
-      'roomType',
-      'type_of_room',
-      'typeOfRoom',
-      'room',
-      'room type'
-    ])),
-    beds_available: Number.isFinite(numericBeds) ? numericBeds : undefined,
-    gender_policy: asTrimmedString(getFirstValueByKeys(source, [
-      'gender_policy',
-      'genderPolicy',
-      'gender',
-      'policy',
-      'gender policy'
-    ])),
-    amenities: normalizeAmenities(getFirstValueByKeys(source, [
-      'amenities',
-      'facilities',
-      'facility'
-    ])),
+    room_type: roomType,
+    beds_available: bedsAvailable,
+    gender_policy: genderPolicy,
+    amenities: amenities,
   };
 };
 

@@ -151,9 +151,10 @@ const normalizeServiceDetails = (value) => {
     'availability', 'service_availability', 'serviceAvailability', 'schedule'
   ]));
 
-  if (pricingModel) normalized.pricing_model = pricingModel;
-  if (serviceArea) normalized.service_area = serviceArea;
-  if (availability) normalized.availability = availability;
+  // Always include fields, even if empty, to maintain consistent structure
+  normalized.pricing_model = pricingModel;
+  normalized.service_area = serviceArea;
+  normalized.availability = availability;
 
   return normalized;
 };
@@ -187,10 +188,11 @@ const normalizeHostelDetails = (value) => {
     'amenities', 'facilities', 'facility'
   ]));
 
-  if (roomType) normalized.room_type = roomType;
-  if (Number.isFinite(bedsAvailable) && bedsAvailable > 0) normalized.beds_available = bedsAvailable;
-  if (genderPolicy) normalized.gender_policy = genderPolicy;
-  if (amenities.length > 0) normalized.amenities = amenities;
+  // Always include fields to maintain consistent structure
+  normalized.room_type = roomType;
+  normalized.beds_available = Number.isFinite(bedsAvailable) && bedsAvailable > 0 ? bedsAvailable : 0;
+  normalized.gender_policy = genderPolicy;
+  normalized.amenities = amenities;
 
   return normalized;
 };

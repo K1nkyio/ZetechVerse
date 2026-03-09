@@ -195,17 +195,17 @@ export function MarketplaceForm({ initialData, onSubmit, onCancel, isEditing }: 
 
       const cleanedServiceDetails = isService
         ? {
-            pricing_model: formData.service_details?.pricing_model,
-            service_area: formData.service_details?.service_area?.trim() || undefined,
-            availability: formData.service_details?.availability?.trim() || undefined,
+            pricing_model: formData.service_details?.pricing_model || '',
+            service_area: (formData.service_details?.service_area || '').trim(),
+            availability: (formData.service_details?.availability || '').trim(),
           }
         : undefined;
 
       const cleanedHostelDetails = isHostel
         ? {
-            room_type: formData.hostel_details?.room_type,
-            beds_available: Number(formData.hostel_details?.beds_available || 0) || undefined,
-            gender_policy: formData.hostel_details?.gender_policy || undefined,
+            room_type: formData.hostel_details?.room_type || '',
+            beds_available: Number(formData.hostel_details?.beds_available || 0),
+            gender_policy: formData.hostel_details?.gender_policy || '',
             amenities: (formData.hostel_details?.amenities || [])
               .map((amenity) => amenity.trim())
               .filter(Boolean),

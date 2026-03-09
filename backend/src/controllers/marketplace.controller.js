@@ -129,6 +129,8 @@ const createListing = async (req, res) => {
     console.log('📨 CREATE MARKETPLACE LISTING REQUEST RECEIVED');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('User:', req.user?.id);
+    console.log('📋 Received service_details:', JSON.stringify(req.body.service_details, null, 2));
+    console.log('📋 Received hostel_details:', JSON.stringify(req.body.hostel_details, null, 2));
     
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -182,11 +184,18 @@ const createListing = async (req, res) => {
         : {}
     };
 
+    console.log('🔄 Cleaned listing data for creation:', JSON.stringify(listingData, null, 2));
+
     if (listingData.listing_kind !== 'product' && !('condition' in safeBody)) {
       listingData.condition = null;
     }
 
     const listingId = await MarketplaceListing.create(listingData);
+    console.log('✅ Listing created with ID:', listingId);
+
+    // Verify the created listing by fetching it back
+    const createdListing = await MarketplaceListing.findById(listingId);
+    console.log('✅ Created listing verification:', JSON.stringify(createdListing, null, 2));
 
     // Trigger notification for new marketplace listing
     try {
