@@ -48,7 +48,7 @@ const Contact = () => {
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
               Contact ZetechVerse
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
               Have questions about the platform, need help, or want to suggest new features? We're here to help.
             </p>
           </div>
@@ -135,45 +135,45 @@ const Contact = () => {
                     <Mail className="h-5 w-5" />
                     Contact Information
                   </CardTitle>
-                  <CardDescription>
-                    Other ways to reach us
-                  </CardDescription>
+                <CardDescription>
+                  Other ways to reach us
+                </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Mail className="h-5 w-5 text-primary" />
+                  <div className="flex items-start gap-4 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <div className="p-2.5 bg-primary/10 rounded-xl">
+                      <Mail className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-foreground">Email</h3>
-                      <p className="text-muted-foreground">info@zetechverse.com</p>
-                      <p className="text-sm text-muted-foreground">
+                      <h3 className="text-base font-semibold text-foreground">Email</h3>
+                      <p className="text-sm sm:text-base text-muted-foreground">info@zetechverse.com</p>
+                      <p className="text-sm text-muted-foreground leading-6">
                         For platform inquiries and support
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Mail className="h-5 w-5 text-primary" />
+                  <div className="flex items-start gap-4 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <div className="p-2.5 bg-primary/10 rounded-xl">
+                      <Mail className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-foreground">Zetech University</h3>
-                      <p className="text-muted-foreground">info@zetech.ac.ke</p>
-                      <p className="text-sm text-muted-foreground">
+                      <h3 className="text-base font-semibold text-foreground">Zetech University</h3>
+                      <p className="text-sm sm:text-base text-muted-foreground">info@zetech.ac.ke</p>
+                      <p className="text-sm text-muted-foreground leading-6">
                         For university-related inquiries
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <MapPin className="h-5 w-5 text-primary" />
+                  <div className="flex items-start gap-4 rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <div className="p-2.5 bg-primary/10 rounded-xl">
+                      <MapPin className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-foreground">Main Campus</h3>
-                      <p className="text-muted-foreground">Ruiru, Kiambu County, Kenya</p>
-                      <p className="text-sm text-muted-foreground">
+                      <h3 className="text-base font-semibold text-foreground">Main Campus</h3>
+                      <p className="text-sm sm:text-base text-muted-foreground">Ruiru, Kiambu County, Kenya</p>
+                      <p className="text-sm text-muted-foreground leading-6">
                         Multiple campuses across Kenya
                       </p>
                     </div>

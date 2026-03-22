@@ -15,6 +15,7 @@ const {
   markAsHot,
   getConfessionStats,
   getPendingConfessions,
+  reportConfession,
   getAllConfessionComments,
   likeConfession,
   getConfessionComments,
@@ -76,13 +77,24 @@ router.get('/:id(\\d+)', optionalAuth, getConfession); // Get single confession
 router.get('/:id(\\d+)/comments', optionalAuth, getConfessionComments); // Get comments for a confession
 
 // Public routes (allow anonymous confession submission)
-router.post('/', confessionValidation, createConfession); // Create confession (anonymous allowed)
+router.post('/', optionalAuth, confessionValidation, createConfession); // Create confession (anonymous allowed)
 
 // Protected routes (require authentication)
 router.use(authenticateToken); // All routes below require authentication
 
 router.post('/:id(\\d+)/like', likeConfession); // Like/unlike a confession
 router.post('/:id(\\d+)/comments', commentValidation, addConfessionComment); // Add comment to confession
+router.post('/:id(\\d+)/report', [
+  body('reason')
+    .trim()
+    .isLength({ min: 3, max: 120 })
+    .withMessage('reason must be between 3 and 120 characters'),
+  body('details')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('details must be under 1000 characters'),
+], reportConfession);
 
 // Admin routes
 router.get('/admin/pending', authenticateToken, requireAdmin, getPendingConfessions); // Get pending confessions

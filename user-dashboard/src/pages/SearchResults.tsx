@@ -252,8 +252,8 @@ const SearchResults = () => {
                   </p>
                   <div className="flex flex-wrap justify-center gap-4">
                     <Button variant="outline" onClick={() => navigate('/explore')}>Explore</Button>
-                    <Button variant="outline" onClick={() => navigate('/technology')}>Technology</Button>
-                    <Button variant="outline" onClick={() => navigate('/business')}>Business</Button>
+                    <Button variant="outline" onClick={() => navigate('/marketplace')}>Marketplace</Button>
+                    <Button variant="outline" onClick={() => navigate('/opportunities')}>Opportunities</Button>
                   </div>
                 </div>
               )}
@@ -266,8 +266,8 @@ const SearchResults = () => {
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <Button variant="outline" onClick={() => navigate('/explore')}>Explore</Button>
-                <Button variant="outline" onClick={() => navigate('/business')}>Business</Button>
-                <Button variant="outline" onClick={() => navigate('/technology')}>Technology</Button>
+                <Button variant="outline" onClick={() => navigate('/marketplace')}>Marketplace</Button>
+                <Button variant="outline" onClick={() => navigate('/events')}>Events</Button>
               </div>
             </div>
           )}

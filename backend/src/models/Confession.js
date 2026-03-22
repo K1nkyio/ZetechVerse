@@ -1,24 +1,34 @@
 const { run, get, all } = require('../config/db');
+const { ensureCommunityFeatureSchema } = require('../utils/communityExtensions');
 
 class Confession {
   // Create a new confession
   static async create(confessionData) {
+    await ensureCommunityFeatureSchema();
     const {
       content,
       category_id,
       author_id,
       is_anonymous = true,
-      status = 'pending'
+      status = 'pending',
+      abuse_score = 0,
+      sentiment_score = 0,
+      sentiment_label = 'neutral',
+      risk_level = 'low',
+      auto_flagged = false,
+      accountability_hash = null
     } = confessionData;
 
     const sql = `
       INSERT INTO confessions (
-        content, category_id, author_id, is_anonymous, status
-      ) VALUES (?, ?, ?, ?, ?)
+        content, category_id, author_id, is_anonymous, status,
+        abuse_score, sentiment_score, sentiment_label, risk_level, auto_flagged, accountability_hash
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
-      content, category_id, author_id, is_anonymous, status
+      content, category_id, author_id, is_anonymous, status,
+      abuse_score, sentiment_score, sentiment_label, risk_level, auto_flagged, accountability_hash
     ];
 
     const result = await run(sql, params);
@@ -47,6 +57,7 @@ class Confession {
       // Convert boolean fields
       confession.is_anonymous = Boolean(confession.is_anonymous);
       confession.is_hot = Boolean(confession.is_hot);
+      confession.auto_flagged = Boolean(confession.auto_flagged);
     }
 
     return confession;
@@ -147,7 +158,8 @@ class Confession {
     const processedConfessions = confessions.map(confession => ({
       ...confession,
       is_anonymous: Boolean(confession.is_anonymous),
-      is_hot: Boolean(confession.is_hot)
+      is_hot: Boolean(confession.is_hot),
+      auto_flagged: Boolean(confession.auto_flagged)
     }));
 
     return {
@@ -163,6 +175,7 @@ class Confession {
 
   // Update confession
   static async update(id, updateData) {
+    await ensureCommunityFeatureSchema();
     const {
       content,
       category_id,
@@ -173,7 +186,14 @@ class Confession {
       is_hot,
       moderated_by,
       moderated_at,
-      moderation_reason
+      moderation_reason,
+      abuse_score,
+      sentiment_score,
+      sentiment_label,
+      risk_level,
+      auto_flagged,
+      accountability_hash,
+      report_count
     } = updateData;
 
     const sql = `
@@ -187,7 +207,14 @@ class Confession {
         is_hot = COALESCE(?, is_hot),
         moderated_by = COALESCE(?, moderated_by),
         moderated_at = COALESCE(?, moderated_at),
-        moderation_reason = COALESCE(?, moderation_reason)
+        moderation_reason = COALESCE(?, moderation_reason),
+        abuse_score = COALESCE(?, abuse_score),
+        sentiment_score = COALESCE(?, sentiment_score),
+        sentiment_label = COALESCE(?, sentiment_label),
+        risk_level = COALESCE(?, risk_level),
+        auto_flagged = COALESCE(?, auto_flagged),
+        accountability_hash = COALESCE(?, accountability_hash),
+        report_count = COALESCE(?, report_count)
       WHERE id = ?
     `;
 
@@ -195,6 +222,8 @@ class Confession {
       content, category_id, status, likes_count, comments_count, shares_count,
       is_hot !== undefined ? is_hot : undefined,
       moderated_by, moderated_at, moderation_reason,
+      abuse_score, sentiment_score, sentiment_label, risk_level,
+      auto_flagged, accountability_hash, report_count,
       id
     ];
 

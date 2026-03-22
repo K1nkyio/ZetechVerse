@@ -59,8 +59,8 @@ const NotFound = () => {
               <Link to="/explore" className="text-foreground hover:text-primary transition-colors">
                 Browse All Posts
               </Link>
-              <Link to="/business" className="text-foreground hover:text-primary transition-colors">
-                Business Articles
+              <Link to="/marketplace" className="text-foreground hover:text-primary transition-colors">
+                Marketplace
               </Link>
             </div>
           </div>

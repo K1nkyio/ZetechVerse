@@ -20,8 +20,8 @@ export interface EventData {
   image_urls?: string[];
   video_urls?: string[];
   media_urls?: string[];
-  agenda?: string;
-  requirements?: string;
+  agenda?: string[] | string;
+  requirements?: string[] | string;
   contact_email?: string;
   contact_phone?: string;
   website_url?: string;
@@ -32,6 +32,48 @@ export interface EventData {
   updated_at: string;
   organizer_name?: string;
   organizer_email?: string;
+  attendee_preview?: Array<{
+    user_id: number;
+    group_name?: string | null;
+    guest_count: number;
+    status: string;
+    reminder_opt_in: boolean;
+    reminder_minutes: number;
+    username?: string | null;
+    full_name?: string | null;
+    course?: string | null;
+    year_of_study?: number | null;
+    avatar_url?: string | null;
+  }>;
+  attendee_count?: number;
+  my_rsvp?: {
+    id: number;
+    status: string;
+    group_name?: string | null;
+    guest_count: number;
+    reminder_opt_in: boolean;
+    reminder_minutes: number;
+    networking_note?: string | null;
+    checked_in?: boolean;
+    attended_at?: string | null;
+  } | null;
+  photo_drops?: Array<{
+    id: number;
+    media_url: string;
+    caption?: string | null;
+    created_at: string;
+    uploader_username?: string | null;
+    uploader_full_name?: string | null;
+  }>;
+  suggested_connections?: Array<{
+    id: number;
+    username?: string | null;
+    full_name?: string | null;
+    course?: string | null;
+    year_of_study?: number | null;
+    avatar_url?: string | null;
+    connection_reason: string;
+  }>;
 }
 
 class EventsApi {
@@ -77,6 +119,45 @@ class EventsApi {
       console.error('Error liking event:', error);
       throw error;
     }
+  }
+
+  async saveRsvp(
+    id: string,
+    data: {
+      group_name?: string;
+      guest_count?: number;
+      reminder_opt_in?: boolean;
+      reminder_minutes?: number;
+      networking_note?: string;
+    }
+  ) {
+    const response = await apiClient.post(`/events/${id}/rsvp`, data);
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Failed to save RSVP');
+    }
+    return response.data;
+  }
+
+  async checkIn(id: string): Promise<void> {
+    const response = await apiClient.post(`/events/${id}/check-in`);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to check in');
+    }
+  }
+
+  async uploadPhoto(id: string, data: { media_url: string; caption?: string }): Promise<void> {
+    const response = await apiClient.post(`/events/${id}/photos`, data);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to upload photo');
+    }
+  }
+
+  async getEventSocial(id: string) {
+    const response = await apiClient.get(`/events/${id}/social`);
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Failed to fetch event social data');
+    }
+    return response.data;
   }
 
   async getAllEvents(filters?: any): Promise<EventData[]> {

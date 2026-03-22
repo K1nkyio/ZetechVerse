@@ -90,7 +90,7 @@ const HeroSection = () => {
     backgroundImage: `url(${heroImage})`,
     backgroundPosition: isDesktop ? `center calc(35% + ${scrollOffset * 0.04}px)` : 'center 35%',
     backgroundSize: 'cover',
-    filter: 'brightness(0.94) contrast(1.02) saturate(1.02)',
+    filter: 'brightness(0.76) contrast(1.08) saturate(0.94)',
     transform: isDesktop ? `scale(${1 + scrollOffset * 0.0002})` : 'scale(1)',
     transformOrigin: 'center center',
   } as const;
@@ -100,11 +100,12 @@ const HeroSection = () => {
 
   return (
     <section
-      className="relative -mx-3 sm:-mx-4 overflow-hidden border-b border-border/70"
+      className="relative -mx-3 sm:-mx-4 overflow-hidden border-b border-border/70 bg-[linear-gradient(180deg,hsl(32_18%_90%)_0%,hsl(30_16%_84%)_100%)] dark:bg-transparent"
     >
       <div className="absolute inset-0 pointer-events-none will-change-transform" style={heroBackgroundStyle} />
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/70 via-black/45 to-black/25" />
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/45 via-black/30 to-black/45 dark:to-background/90" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-stone-950/82 via-stone-900/58 to-stone-800/28 dark:from-black/70 dark:via-black/45 dark:to-black/25" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-stone-950/56 via-stone-900/30 to-stone-950/44 dark:from-black/45 dark:via-black/30 dark:to-black/45 dark:to-background/90" />
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,rgba(255,239,214,0.08),transparent_40%)] dark:bg-none" />
 
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-20 -left-8 h-64 w-64 rounded-full bg-primary/8 blur-3xl animate-float" />
@@ -115,7 +116,7 @@ const HeroSection = () => {
 
       <div className="container mx-auto px-4 sm:px-6 relative z-10 py-10 sm:py-14 lg:py-16">
         <div className="animate-slide-up mx-auto max-w-5xl text-center">
-            <Badge className="mb-5 h-9 rounded-full border border-white/35 bg-black/45 px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
+            <Badge className="mb-5 h-9 rounded-full border border-white/20 bg-stone-950/48 px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.45)] dark:border-white/35 dark:bg-black/45 dark:shadow-none">
               <Sparkles className="mr-2 h-3.5 w-3.5" />
               {isAuthenticated ? `Welcome back, ${displayName}` : t('hero.welcomeBadge')}
             </Badge>
@@ -169,12 +170,12 @@ const HeroSection = () => {
               )}
             </div>
 
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3 text-xs text-white/85 sm:text-sm">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-3 py-1.5 backdrop-blur-sm">
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-3 text-xs text-white/90 sm:text-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/18 bg-stone-950/42 px-3 py-1.5 shadow-[0_16px_36px_-24px_rgba(30,20,10,0.65)] dark:border-white/25 dark:bg-black/40 dark:shadow-none">
                 <TrendingUp className="h-3.5 w-3.5 text-primary" />
                 {t('hero.dailyUpdates')}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/40 px-3 py-1.5 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/18 bg-stone-950/42 px-3 py-1.5 shadow-[0_16px_36px_-24px_rgba(30,20,10,0.65)] dark:border-white/25 dark:bg-black/40 dark:shadow-none">
                 <Users className="h-3.5 w-3.5 text-accent" />
                 {t('hero.studentFirst')}
               </span>
@@ -185,7 +186,7 @@ const HeroSection = () => {
                 <Link
                   key={item.label}
                   to={item.href}
-                  className="group rounded-2xl border border-white/20 bg-black/35 p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-black/45 hover:shadow-md"
+                  className="group rounded-2xl border border-white/16 bg-stone-950/38 p-4 shadow-[0_24px_48px_-28px_rgba(36,24,12,0.75)] transition-all duration-300 hover:-translate-y-1 hover:bg-stone-950/48 hover:shadow-[0_28px_56px_-28px_rgba(36,24,12,0.85)] dark:border-white/20 dark:bg-black/35 dark:shadow-sm dark:hover:-translate-y-0.5 dark:hover:bg-black/45 dark:hover:shadow-md"
                   style={{ animationDelay: `${100 + idx * 60}ms` }}
                 >
                   <span className={`mb-3 inline-flex rounded-xl p-2.5 ${item.color}`}>

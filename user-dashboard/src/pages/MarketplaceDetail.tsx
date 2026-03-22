@@ -27,6 +27,8 @@ import {
   Zap,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ZoomIn,
   Clock3,
   Package,
@@ -64,6 +66,11 @@ const MarketplaceDetail = () => {
   const [isReserving, setIsReserving] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [showSafetyGuidance, setShowSafetyGuidance] = useState(true);
   const [similarProducts, setSimilarProducts] = useState<any[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const { toast } = useToast();
@@ -214,7 +221,10 @@ const MarketplaceDetail = () => {
     }
   };
 
-  const handleReportListing = () => {
+  const handleReportListing = async () => {
+    if (!item) return;
+    if (!requireAuth('report listings')) return;
+
     if (!reportReason.trim()) {
       toast({
         title: 'Reason required',
@@ -224,16 +234,30 @@ const MarketplaceDetail = () => {
       return;
     }
 
-    trackEvent('marketplace_listing_reported', {
-      listingId: item?.id,
-      reason: reportReason,
-    });
-    toast({
-      title: 'Report submitted',
-      description: 'Moderators will review this listing.',
-    });
-    setReportDialogOpen(false);
-    setReportReason('');
+    try {
+      await marketplaceApi.reportListing(String(item.id), {
+        reason: reportReason,
+        details: reportDetails || undefined,
+        risk_level: /scam|fraud|danger|unsafe/i.test(`${reportReason} ${reportDetails}`) ? 'high' : 'medium',
+      });
+      trackEvent('marketplace_listing_reported', {
+        listingId: item.id,
+        reason: reportReason,
+      });
+      toast({
+        title: 'Report submitted',
+        description: 'Moderators will review this listing.',
+      });
+      setReportDialogOpen(false);
+      setReportReason('');
+      setReportDetails('');
+    } catch (error: any) {
+      toast({
+        title: 'Report failed',
+        description: error.message || 'Could not submit this report.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Image gallery functions
@@ -309,6 +333,7 @@ const MarketplaceDetail = () => {
 
   // Reserve functionality
   const handleReserve = async () => {
+    if (!item) return;
     if (!requireAuth('reserve items')) return;
 
     if (!reserveMessage.trim()) {
@@ -322,8 +347,25 @@ const MarketplaceDetail = () => {
 
     setIsReserving(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const reservation = await marketplaceApi.reserveListing(String(item.id), reserveMessage.trim());
+      setItem((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              reserved_by: reservation.reserved_by,
+              reserved_at: reservation.reserved_at,
+              reserved_until: reservation.reserved_until,
+              reservation_message: reserveMessage.trim(),
+              reservation: {
+                is_reserved: true,
+                reserved_by: reservation.reserved_by,
+                reserved_at: reservation.reserved_at,
+                reserved_until: reservation.reserved_until,
+                reservation_message: reserveMessage.trim(),
+              },
+            }
+          : prev
+      );
 
       toast({
         title: 'Item Reserved!',
@@ -339,6 +381,71 @@ const MarketplaceDetail = () => {
       });
     } finally {
       setIsReserving(false);
+    }
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!item) return;
+    if (!requireAuth('review sellers')) return;
+
+    try {
+      setSubmittingReview(true);
+      const sellerProfile = await marketplaceApi.submitSellerReview(String(item.id), {
+        rating: reviewRating,
+        review_text: reviewText.trim() || undefined,
+      });
+
+      setItem((prev: any) => (prev ? { ...prev, seller_profile: sellerProfile } : prev));
+      setReviewText('');
+      toast({
+        title: 'Review saved',
+        description: 'Your seller rating has been recorded.',
+      });
+      await fetchListing();
+    } catch (error: any) {
+      toast({
+        title: 'Review failed',
+        description: error.message || 'Could not save your review.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleReleaseReservation = async () => {
+    if (!item) return;
+
+    try {
+      await marketplaceApi.releaseReservation(String(item.id));
+      setItem((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              reserved_by: null,
+              reserved_at: null,
+              reserved_until: null,
+              reservation_message: null,
+              reservation: {
+                is_reserved: false,
+                reserved_by: null,
+                reserved_at: null,
+                reserved_until: null,
+                reservation_message: null,
+              },
+            }
+          : prev
+      );
+      toast({
+        title: 'Reservation released',
+        description: 'The item is available again.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Could not release reservation',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -617,20 +724,29 @@ const MarketplaceDetail = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-medium">{item.seller_full_name || item.seller_username || 'Seller'}</p>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-xs text-green-600 font-medium">Verified</span>
+                      {item.seller_profile?.verified_student ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <span className="text-xs text-green-600 font-medium">{item.seller_profile.badge_label}</span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Unverified seller</span>
+                      )}
                     </div>
-                    {item.seller_rating && (
+                    {item.seller_profile?.reviews_count ? (
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium">{item.seller_rating}</span>
+                          <span className="text-sm font-medium">{item.seller_profile.average_rating}</span>
                         </div>
                         <span className="text-sm text-muted-foreground">
-                          ({item.seller_reviews || 0} reviews)
+                          ({item.seller_profile.reviews_count} reviews)
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {item.seller_profile.completed_transactions} completed deals
                         </span>
                       </div>
-                    )}
+                    ) : <p className="text-xs text-muted-foreground">No seller reviews yet.</p>}
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -642,6 +758,20 @@ const MarketplaceDetail = () => {
                   </Button>
                 </div>
               </div>
+
+              {item.reservation?.is_reserved && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                  <p className="font-medium">Item reserved</p>
+                  <p className="mt-1">
+                    Reserved until {item.reservation.reserved_until ? new Date(item.reservation.reserved_until).toLocaleString() : 'soon'}.
+                  </p>
+                  {(String(item.reservation.reserved_by) === String(user?.id) || String(item.seller_id) === String(user?.id)) && (
+                    <Button variant="outline" size="sm" className="mt-3" onClick={handleReleaseReservation}>
+                      Release reservation
+                    </Button>
+                  )}
+                </div>
+              )}
 
               <div>
                 <Button
@@ -661,7 +791,107 @@ const MarketplaceDetail = () => {
                   Enquire via WhatsApp
                 </Button>
               </div>
+
+              {item.safety_guidance?.length > 0 && (
+                <div className="mt-4 rounded-lg border border-border/60 bg-background/70 p-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowSafetyGuidance((prev) => !prev)}
+                    className="flex w-full items-center justify-between gap-3 text-left"
+                  >
+                    <span className="text-sm font-medium">Meetup safety guidance</span>
+                    {showSafetyGuidance ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  {showSafetyGuidance && (
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {item.safety_guidance.map((tip: string, index: number) => (
+                        <p key={index}>{tip}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {user && String(item.seller_id) !== String(user.id) && (
+                <div className="mt-4 rounded-lg border border-border/60 bg-background/70 p-3 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Rate this seller</p>
+                    <p className="text-xs text-muted-foreground">Help other students spot trustworthy sellers.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <Button
+                        key={rating}
+                        type="button"
+                        variant={reviewRating === rating ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setReviewRating(rating)}
+                      >
+                        {rating}
+                      </Button>
+                    ))}
+                  </div>
+                  <Textarea
+                    value={reviewText}
+                    onChange={(event) => setReviewText(event.target.value)}
+                    rows={3}
+                    placeholder="Share a short note about responsiveness, honesty, or meetup safety..."
+                  />
+                  <Button onClick={handleReviewSubmit} disabled={submittingReview}>
+                    {submittingReview ? 'Saving review...' : 'Submit review'}
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {item.seller_reviews?.length > 0 && (
+              <div className="rounded-lg border border-border/60 p-4">
+                <h3 className="text-lg font-semibold mb-3">Recent seller reviews</h3>
+                <div className="space-y-3">
+                  {item.seller_reviews.map((review: any) => (
+                    <div key={review.id} className="rounded-md bg-muted/40 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium">
+                          {review.reviewer_full_name || review.reviewer_username || 'Student reviewer'}
+                        </p>
+                        <div className="flex items-center gap-1 text-sm">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          {review.rating}
+                        </div>
+                      </div>
+                      {review.review_text && (
+                        <p className="mt-2 text-sm text-muted-foreground">{review.review_text}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {item.transaction_history?.length > 0 && (
+              <div className="rounded-lg border border-border/60 p-4">
+                <h3 className="text-lg font-semibold mb-3">Transaction history</h3>
+                <div className="space-y-2 text-sm">
+                  {item.transaction_history.map((transaction: any) => (
+                    <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-md bg-muted/40 p-3">
+                      <div>
+                        <p className="font-medium">
+                          KSh {Number(transaction.amount || 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {transaction.buyer_full_name || transaction.buyer_username || 'Buyer'} • {transaction.meetup_status}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="capitalize">{transaction.payment_status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="text-lg font-semibold mb-3">Description</h3>
@@ -1101,6 +1331,14 @@ const MarketplaceDetail = () => {
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
               placeholder="Fraud, prohibited item, misleading details..."
+              rows={3}
+            />
+            <Label htmlFor="report-listing-details">Extra details</Label>
+            <Textarea
+              id="report-listing-details"
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+              placeholder="Add screenshots, meetup concerns, or pricing red flags."
               rows={3}
             />
             <div className="flex justify-end gap-2">

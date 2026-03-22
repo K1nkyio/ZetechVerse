@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
 const Opportunity = require('../models/Opportunity');
 const Notification = require('../models/Notification');
+const { recordUniqueView } = require('../utils/engagementTracking');
 
 // Get all opportunities with filtering and pagination
 const getOpportunities = async (req, res) => {
@@ -49,10 +50,14 @@ const getOpportunity = async (req, res) => {
       });
     }
 
-    // Increment view count for authenticated users
-    if (req.user) {
-      await Opportunity.incrementViews(id);
-      opportunity.views_count += 1;
+    const countedView = await recordUniqueView({
+      req,
+      contentType: 'opportunity',
+      contentId: id,
+      incrementView: () => Opportunity.incrementViews(id)
+    });
+    if (countedView) {
+      opportunity.views_count = Number(opportunity.views_count || 0) + 1;
     }
 
     res.json({

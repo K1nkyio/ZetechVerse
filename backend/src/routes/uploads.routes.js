@@ -22,7 +22,10 @@ const ALLOWED_MIME_TYPES = {
   'video/mp4': '.mp4',
   'video/webm': '.webm',
   'video/quicktime': '.mov',
-  'video/x-msvideo': '.avi'
+  'video/x-msvideo': '.avi',
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
 };
 
 const MAX_UPLOAD_MB = parseEnvInt(process.env.UPLOAD_MAX_FILE_SIZE_MB, 100);
@@ -65,7 +68,7 @@ router.post('/media', authenticateToken, requireUserOrAdmin, async (req, res) =>
     if (!extension) {
       return res.status(400).json({
         success: false,
-        message: 'Unsupported file type. Only image and video files are allowed.'
+        message: 'Unsupported file type. Only image, video, PDF, DOC, and DOCX files are allowed.'
       });
     }
 
@@ -95,7 +98,9 @@ router.post('/media', authenticateToken, requireUserOrAdmin, async (req, res) =>
       });
     }
 
-    const mediaBucket = normalizedMimeType.startsWith('video/') ? 'videos' : 'images';
+    const mediaBucket = normalizedMimeType.startsWith('video/')
+      ? 'videos'
+      : (normalizedMimeType.startsWith('image/') ? 'images' : 'documents');
     const uploadsDir = path.join(uploadsRoot, mediaBucket);
     fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -121,12 +126,12 @@ router.post('/media', authenticateToken, requireUserOrAdmin, async (req, res) =>
     return res.status(201).json({
       success: true,
       message: 'File uploaded successfully',
-      data: {
-        url: publicUrl,
-        media_type: mediaBucket === 'videos' ? 'video' : 'image',
-        mime_type: normalizedMimeType,
-        filename: storedFileName,
-        size: buffer.length
+        data: {
+          url: publicUrl,
+          media_type: mediaBucket === 'videos' ? 'video' : (mediaBucket === 'images' ? 'image' : 'document'),
+          mime_type: normalizedMimeType,
+          filename: storedFileName,
+          size: buffer.length
       }
     });
   } catch (error) {

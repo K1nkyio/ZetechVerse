@@ -20,6 +20,13 @@ export interface Confession {
   moderation_reason?: string;
   ip_address?: string;
   user_agent?: string;
+  abuse_score?: number;
+  sentiment_score?: number;
+  sentiment_label?: 'positive' | 'neutral' | 'negative' | string;
+  risk_level?: 'low' | 'medium' | 'high' | string;
+  auto_flagged?: boolean;
+  accountability_hash?: string;
+  report_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -163,5 +170,13 @@ export const confessionsApi = {
       console.error('Error adding confession comment:', error);
       throw error;
     }
+  },
+
+  async reportConfession(id: number, data: { reason: string; details?: string }): Promise<{ report_count: number }> {
+    const response = await apiClient.post<{ report_count: number }>(`/confessions/${id}/report`, data);
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Failed to report confession');
+    }
+    return response.data;
   },
 };

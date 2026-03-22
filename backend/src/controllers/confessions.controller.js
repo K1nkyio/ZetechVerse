@@ -1,6 +1,15 @@
 const { validationResult } = require('express-validator');
 const Confession = require('../models/Confession');
 const Notification = require('../models/Notification');
+const {
+  ensureCommunityFeatureSchema,
+  analyzeConfessionContent,
+  hashAccountabilitySource,
+  get,
+  all,
+  run
+} = require('../utils/communityExtensions');
+const { recordUniqueView } = require('../utils/engagementTracking');
 
 // Get all confessions with filtering and pagination (only approved ones for public)
 const getConfessions = async (req, res) => {
@@ -89,9 +98,16 @@ const getConfession = async (req, res) => {
       });
     }
 
-    // Increment view count for authenticated users (only for approved confessions)
-    if (req.user && confession.status === 'approved') {
-      await Confession.incrementViews(id);
+    if (confession.status === 'approved') {
+      const countedView = await recordUniqueView({
+        req,
+        contentType: 'confession',
+        contentId: id,
+        incrementView: () => Confession.incrementViews(id)
+      });
+      if (countedView) {
+        confession.views_count = Number(confession.views_count || 0) + 1;
+      }
     }
 
     let likedByMe = false;
@@ -121,6 +137,7 @@ const getConfession = async (req, res) => {
 // Create new confession
 const createConfession = async (req, res) => {
   try {
+    await ensureCommunityFeatureSchema();
     console.log('📨 CREATE CONFESSION REQUEST RECEIVED');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('User:', req.user?.id);
@@ -147,10 +164,24 @@ const createConfession = async (req, res) => {
       });
     }
 
+    const forwarded = req.headers['x-forwarded-for'];
+    const ipAddress = Array.isArray(forwarded)
+      ? forwarded[0]
+      : (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.ip);
+    const moderationSignals = analyzeConfessionContent(req.body.content);
+
     const confessionData = {
       ...req.body,
-      author_id: req.body.is_anonymous ? null : (req.user?.id || null),
-      status: 'pending' // All new confessions start as pending
+      author_id: req.user?.id || null,
+      status: moderationSignals.autoFlagged ? 'flagged' : 'pending',
+      abuse_score: moderationSignals.abuseScore,
+      sentiment_score: moderationSignals.sentimentScore,
+      sentiment_label: moderationSignals.sentimentLabel,
+      risk_level: moderationSignals.riskLevel,
+      auto_flagged: moderationSignals.autoFlagged,
+      accountability_hash: hashAccountabilitySource(
+        req.user?.id || `${ipAddress || ''}|${req.headers['user-agent'] || ''}`
+      )
     };
 
     const confessionId = await Confession.create(confessionData);
@@ -158,7 +189,10 @@ const createConfession = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Confession submitted successfully',
-      data: { id: confessionId }
+      data: {
+        id: confessionId,
+        moderation: moderationSignals
+      }
     });
   } catch (error) {
     console.error('Error creating confession:', error);
@@ -213,6 +247,15 @@ const updateConfession = async (req, res) => {
       moderated_by: req.user.id,
       moderated_at: new Date().toISOString()
     };
+
+    if (req.body.content) {
+      const moderationSignals = analyzeConfessionContent(req.body.content);
+      updateData.abuse_score = moderationSignals.abuseScore;
+      updateData.sentiment_score = moderationSignals.sentimentScore;
+      updateData.sentiment_label = moderationSignals.sentimentLabel;
+      updateData.risk_level = moderationSignals.riskLevel;
+      updateData.auto_flagged = moderationSignals.autoFlagged;
+    }
 
     await Confession.update(id, updateData);
 
@@ -407,13 +450,29 @@ const markAsHot = async (req, res) => {
 // Get confession statistics (admin only)
 const getConfessionStats = async (req, res) => {
   try {
-    const { get } = require('../config/db');
-
+    await ensureCommunityFeatureSchema();
     const totalConfessions = await get("SELECT COUNT(*) as count FROM confessions");
     const pendingApprovals = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'pending'");
     const approvedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'approved'");
     const rejectedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'rejected'");
     const hotConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE is_hot = 1");
+    const flaggedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'flagged'");
+    const autoFlaggedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE auto_flagged = true");
+    const highRiskConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE risk_level = 'high'");
+    const totalReports = await get("SELECT COUNT(*) as count FROM confession_reports");
+    const averageAbuseScore = await get("SELECT COALESCE(ROUND(AVG(abuse_score)::numeric, 1), 0) as score FROM confessions");
+    const sentimentDistribution = await all(`
+      SELECT sentiment_label as label, COUNT(*)::INTEGER as count
+      FROM confessions
+      GROUP BY sentiment_label
+      ORDER BY count DESC
+    `);
+    const riskDistribution = await all(`
+      SELECT risk_level as level, COUNT(*)::INTEGER as count
+      FROM confessions
+      GROUP BY risk_level
+      ORDER BY count DESC
+    `);
 
     res.json({
       success: true,
@@ -422,7 +481,14 @@ const getConfessionStats = async (req, res) => {
         pending_approvals: pendingApprovals.count || 0,
         approved_confessions: approvedConfessions.count || 0,
         rejected_confessions: rejectedConfessions.count || 0,
-        hot_confessions: hotConfessions.count || 0
+        hot_confessions: hotConfessions.count || 0,
+        flagged_confessions: flaggedConfessions.count || 0,
+        auto_flagged_confessions: autoFlaggedConfessions.count || 0,
+        high_risk_confessions: highRiskConfessions.count || 0,
+        total_reports: totalReports.count || 0,
+        average_abuse_score: Number(averageAbuseScore.score || 0),
+        sentiment_distribution: sentimentDistribution,
+        risk_distribution: riskDistribution
       }
     });
   } catch (error) {
@@ -430,6 +496,70 @@ const getConfessionStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch confession statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const reportConfession = async (req, res) => {
+  try {
+    await ensureCommunityFeatureSchema();
+
+    const { id } = req.params;
+    const confession = await Confession.findById(id);
+
+    if (!confession) {
+      return res.status(404).json({
+        success: false,
+        message: 'Confession not found'
+      });
+    }
+
+    await run(
+      `
+        INSERT INTO confession_reports (confession_id, reporter_id, reason, details)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (confession_id, reporter_id) DO UPDATE SET
+          reason = EXCLUDED.reason,
+          details = EXCLUDED.details,
+          created_at = CURRENT_TIMESTAMP
+      `,
+      [
+        id,
+        req.user.id,
+        String(req.body.reason || 'Needs review').trim(),
+        req.body.details ? String(req.body.details).trim() : null
+      ]
+    );
+
+    const reportStats = await get(
+      'SELECT COUNT(*)::INTEGER AS total FROM confession_reports WHERE confession_id = ?',
+      [id]
+    );
+    const reportCount = Number(reportStats?.total || 0);
+
+    const updateData = { report_count: reportCount };
+    if (reportCount >= 3 && confession.status === 'approved') {
+      updateData.status = 'flagged';
+      updateData.moderation_reason = 'Community reports threshold reached';
+      updateData.moderated_by = req.user.id;
+      updateData.moderated_at = new Date().toISOString();
+    }
+
+    await Confession.update(id, updateData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Confession report submitted successfully',
+      data: {
+        report_count: reportCount
+      }
+    });
+  } catch (error) {
+    console.error('Error reporting confession:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to report confession',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -754,6 +884,7 @@ module.exports = {
   markAsHot,
   getConfessionStats,
   getPendingConfessions,
+  reportConfession,
   likeConfession,
   getConfessionComments,
   addConfessionComment,

@@ -6,7 +6,6 @@ import {
   Code, 
   Home, 
   Briefcase, 
-  GraduationCap, 
   Calendar 
 } from 'lucide-react';
 
@@ -17,7 +16,6 @@ const categories = [
   { name: 'Services', icon: Code, path: '/marketplace?category=services', color: 'bg-purple-500/10 text-purple-500' },
   { name: 'Hostels', icon: Home, path: '/marketplace?category=hostels', color: 'bg-green-500/10 text-green-500' },
   { name: 'Jobs', icon: Briefcase, path: '/opportunities', color: 'bg-cyan-500/10 text-cyan-500' },
-  { name: 'Courses', icon: GraduationCap, path: '/learn', color: 'bg-orange-500/10 text-orange-500' },
   { name: 'Events', icon: Calendar, path: '/events', color: 'bg-red-500/10 text-red-500' },
 ];
 
@@ -26,7 +24,7 @@ const QuickCategories = () => {
     <section className="py-8 border-b border-border">
       <div className="container mx-auto px-4">
         <h2 className="text-2xl font-bold mb-4 text-center">Explore by Category</h2>
-        <p className="text-muted-foreground text-center mb-6 max-w-2xl mx-auto">Find everything you need in one place - from electronics and books to jobs and courses</p>
+        <p className="text-muted-foreground text-center mb-6 max-w-2xl mx-auto">Find everything you need in one place - from electronics and books to jobs and events</p>
         <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide">
           {categories.map((category) => {
             const Icon = category.icon;

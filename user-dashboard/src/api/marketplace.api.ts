@@ -54,6 +54,50 @@ export interface MarketplaceListing {
   seller_full_name?: string;
   category_name?: string;
   category_slug?: string;
+  reserved_by?: number | null;
+  reserved_at?: string | null;
+  reserved_until?: string | null;
+  reservation_message?: string | null;
+  seller_profile?: {
+    id: number;
+    full_name?: string | null;
+    username?: string | null;
+    verified_student: boolean;
+    badge_label: string;
+    average_rating: number;
+    reviews_count: number;
+    completed_transactions: number;
+  };
+  seller_reviews?: Array<{
+    id: number;
+    rating: number;
+    review_text?: string | null;
+    created_at: string;
+    reviewer_username?: string | null;
+    reviewer_full_name?: string | null;
+  }>;
+  safety_guidance?: string[];
+  reservation?: {
+    is_reserved: boolean;
+    reserved_by?: number | null;
+    reserved_at?: string | null;
+    reserved_until?: string | null;
+    reservation_message?: string | null;
+  };
+  report_summary?: {
+    open_reports: number;
+  };
+  transaction_history?: Array<{
+    id: number;
+    amount: number;
+    payment_status: string;
+    meetup_status: string;
+    note?: string | null;
+    buyer_username?: string | null;
+    buyer_full_name?: string | null;
+    completed_at?: string | null;
+    created_at: string;
+  }>;
 }
 
 export interface MarketplaceComment {
@@ -187,6 +231,46 @@ class MarketplaceApi {
       console.error('Error liking listing:', error);
       throw error;
     }
+  }
+
+  async reserveListing(id: string, message?: string): Promise<{ reserved_by: number; reserved_at: string; reserved_until: string }> {
+    const response = await apiClient.post(`/marketplace/${id}/reserve`, { message });
+    return handleApiResponse(response);
+  }
+
+  async releaseReservation(id: string): Promise<void> {
+    const response = await apiClient.delete(`/marketplace/${id}/reserve`);
+    handleApiResponse(response);
+  }
+
+  async submitSellerReview(id: string, data: { rating: number; review_text?: string }): Promise<MarketplaceListing['seller_profile']> {
+    const response = await apiClient.post(`/marketplace/${id}/reviews`, data);
+    return handleApiResponse(response);
+  }
+
+  async reportListing(id: string, data: { reason: string; details?: string; risk_level?: 'low' | 'medium' | 'high' }): Promise<void> {
+    const response = await apiClient.post(`/marketplace/${id}/report`, data);
+    handleApiResponse(response);
+  }
+
+  async recordTransaction(
+    id: string,
+    data: {
+      amount?: number;
+      payment_status?: 'pending' | 'paid' | 'refunded';
+      meetup_status?: 'planned' | 'completed' | 'cancelled';
+      note?: string;
+      buyer_id?: number;
+      mark_sold?: boolean;
+    }
+  ): Promise<void> {
+    const response = await apiClient.post(`/marketplace/${id}/transactions`, data);
+    handleApiResponse(response);
+  }
+
+  async getUserTransactions(): Promise<MarketplaceListing['transaction_history']> {
+    const response = await apiClient.get('/marketplace/user/transactions');
+    return handleApiResponse(response);
   }
 
   async createListing(data: Partial<MarketplaceListing>): Promise<MarketplaceListing> {

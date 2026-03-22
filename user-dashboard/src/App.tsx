@@ -35,10 +35,6 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Forbidden = lazy(() => import("./pages/Forbidden"));
 const BlogDetail = lazy(() => import("./pages/BlogDetail"));
-const Business = lazy(() => import("./pages/Business"));
-const Technology = lazy(() => import("./pages/Technology"));
-const Learn = lazy(() => import("./pages/Learn"));
-const Podcast = lazy(() => import("./pages/Podcast"));
 const SearchResults = lazy(() => import("./pages/SearchResults"));
 const Sitemap = lazy(() => import("./pages/Sitemap"));
 const MarketplaceDetail = lazy(() => import("./pages/MarketplaceDetail"));
@@ -153,10 +149,6 @@ const App = () => {
                     <Route path="/privacy" element={<Privacy />} />
                     <Route path="/forbidden" element={<Forbidden />} />
                     <Route path="/blog/:id" element={<BlogDetail />} />
-                    <Route path="/business" element={<Business />} />
-                    <Route path="/technology" element={<Technology />} />
-                    <Route path="/learn" element={<Learn />} />
-                    <Route path="/podcast" element={<Podcast />} />
                     <Route path="/search" element={<SearchResults />} />
                     <Route path="/sitemap" element={<Sitemap />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

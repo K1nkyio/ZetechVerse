@@ -32,6 +32,7 @@ import { Eye, Edit, Trash2, MoreHorizontal, CheckCircle, XCircle, Flag, Star, Se
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { confessionsApi, type Confession } from "@/api/confessions.api";
+import type { ConfessionStats } from "@/types/confession";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,6 +45,7 @@ export default function SuperAdminConfessions() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [confessionToDelete, setConfessionToDelete] = useState<Confession | null>(null);
+  const [stats, setStats] = useState<ConfessionStats | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -69,10 +71,12 @@ export default function SuperAdminConfessions() {
       }
 
       const response = await confessionsApi.getConfessions(filters);
+      const statsResponse = await confessionsApi.getConfessionStats();
       // Filter out any undefined items from the confessions array
       const validConfessions = response.confessions.filter(confession => confession && confession.id);
       setConfessions(validConfessions);
       setPagination(response.pagination);
+      setStats(statsResponse);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -188,6 +192,9 @@ export default function SuperAdminConfessions() {
             {confession.is_hot && (
               <Badge variant="destructive" className="text-xs">Hot</Badge>
             )}
+            {confession.auto_flagged && (
+              <Badge variant="outline" className="text-xs">Auto-flagged</Badge>
+            )}
           </div>
         </div>
       ),
@@ -196,6 +203,27 @@ export default function SuperAdminConfessions() {
       key: "status",
       header: "Status",
       render: (confession) => getStatusBadge(confession),
+    },
+    {
+      key: "risk",
+      header: "Risk",
+      render: (confession) => (
+        <div className="space-y-1">
+          <Badge variant={confession.risk_level === 'high' ? 'destructive' : confession.risk_level === 'medium' ? 'secondary' : 'outline'} className="capitalize">
+            {confession.risk_level || 'low'}
+          </Badge>
+          <div className="text-xs text-muted-foreground">
+            Abuse {Number(confession.abuse_score || 0).toFixed(0)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "reports",
+      header: "Reports",
+      render: (confession) => (
+        <div className="text-sm font-medium">{confession.report_count || 0}</div>
+      ),
     },
     {
       key: "created_at",
@@ -296,7 +324,34 @@ export default function SuperAdminConfessions() {
 
   return (
     <AdminLayout variant="super-admin">
-      <div className="space-y-6">
+        <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <Card className="admin-card">
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">Pending approvals</div>
+              <div className="text-2xl font-bold mt-2">{stats?.pending_approvals || 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="admin-card">
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">High-risk confessions</div>
+              <div className="text-2xl font-bold mt-2">{stats?.high_risk_confessions || 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="admin-card">
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">Community reports</div>
+              <div className="text-2xl font-bold mt-2">{stats?.total_reports || 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="admin-card">
+            <CardContent className="pt-6">
+              <div className="text-sm text-muted-foreground">Average abuse score</div>
+              <div className="text-2xl font-bold mt-2">{stats?.average_abuse_score || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold font-display text-foreground">Moderate Confessions</h1>

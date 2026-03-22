@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -49,8 +49,8 @@
     --ring: 199 89% 48%;
 
     --radius: 0.75rem;
-    --font-sans: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
-    --font-display: "Fraunces", "Iowan Old Style", "Times New Roman", serif;
+    --font-sans: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
 
     /* Admin Dashboard Specific */
     --admin-sidebar: 222 47% 11%;
@@ -133,11 +133,11 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: var(--font-sans);
-    font-size: clamp(0.98rem, 0.96rem + 0.2vw, 1.04rem);
-    line-height: 1.65;
-    letter-spacing: 0.005em;
+    font-size: clamp(1rem, 0.97rem + 0.22vw, 1.08rem);
+    line-height: 1.72;
+    letter-spacing: 0.002em;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "ss01" 1, "cv02" 1;
+    font-feature-settings: "ss01" 1, "cv02" 1, "cv03" 1;
   }
 
   h1,
@@ -147,26 +147,27 @@
   h5,
   h6 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
-    line-height: 1.18;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    font-weight: 700;
     color: hsl(var(--foreground));
   }
 
   h1 {
-    font-size: clamp(2rem, 1.6rem + 2vw, 3.8rem);
+    font-size: clamp(2.2rem, 1.7rem + 2.4vw, 4.15rem);
   }
 
   h2 {
-    font-size: clamp(1.6rem, 1.25rem + 1.2vw, 2.7rem);
+    font-size: clamp(1.8rem, 1.35rem + 1.35vw, 3rem);
   }
 
   h3 {
-    font-size: clamp(1.3rem, 1.05rem + 0.7vw, 1.95rem);
+    font-size: clamp(1.42rem, 1.14rem + 0.82vw, 2.1rem);
   }
 
   p,
   li {
-    line-height: 1.75;
+    line-height: 1.82;
   }
 
   :focus-visible {
@@ -181,6 +182,15 @@
   select,
   textarea {
     min-height: 44px;
+    font-family: var(--font-sans);
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  label {
+    letter-spacing: 0.01em;
   }
 }
 
@@ -209,8 +219,8 @@
   .blog-title {
     @apply text-2xl text-foreground leading-tight;
     font-family: var(--font-display);
-    font-weight: 650;
-    letter-spacing: -0.018em;
+    font-weight: 700;
+    letter-spacing: -0.028em;
   }
   
   .blog-excerpt {
@@ -221,15 +231,15 @@
   .featured-title {
     @apply text-4xl text-foreground leading-tight;
     font-family: var(--font-display);
-    font-weight: 650;
-    letter-spacing: -0.02em;
+    font-weight: 750;
+    letter-spacing: -0.03em;
   }
   
   .section-title {
     @apply text-2xl sm:text-3xl text-foreground mb-8;
     font-family: var(--font-display);
-    font-weight: 650;
-    letter-spacing: -0.018em;
+    font-weight: 700;
+    letter-spacing: -0.028em;
   }
 
   .touch-target {
@@ -282,8 +292,8 @@
 
   .article-content {
     color: hsl(var(--foreground) / 0.92);
-    font-size: clamp(1.02rem, 1rem + 0.2vw, 1.1rem);
-    line-height: 1.92;
+    font-size: clamp(1.05rem, 1.02rem + 0.24vw, 1.16rem);
+    line-height: 1.96;
     max-width: 72ch;
     margin-inline: auto;
   }
@@ -296,8 +306,8 @@
   .article-content h3,
   .article-content h4 {
     font-family: var(--font-display);
-    font-weight: 650;
-    line-height: 1.26;
+    font-weight: 700;
+    line-height: 1.16;
     margin-top: 2rem;
     margin-bottom: 0.8rem;
   }

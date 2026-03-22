@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const { run, get, all } = require('../config/db');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
+const { recordUniqueView } = require('../utils/engagementTracking');
 
 const attachLikedByMe = async (posts, userId) => {
   if (!userId || !Array.isArray(posts) || posts.length === 0) return posts;
@@ -112,8 +113,15 @@ const getPost = async (req, res) => {
       });
     }
 
-    // Increment view count
-    await Post.incrementViews(id);
+    const countedView = await recordUniqueView({
+      req,
+      contentType: 'blog_post',
+      contentId: id,
+      incrementView: () => Post.incrementViews(id)
+    });
+    if (countedView) {
+      post.views_count = Number(post.views_count || 0) + 1;
+    }
 
     const likedRows = req.user
       ? await all('SELECT blog_post_id FROM blog_post_likes WHERE user_id = ? AND blog_post_id = ?', [req.user.id, id])

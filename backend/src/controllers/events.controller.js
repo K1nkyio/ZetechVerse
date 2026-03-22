@@ -1,6 +1,11 @@
 const { validationResult } = require('express-validator');
 const Event = require('../models/Event');
 const { run, get, all } = require('../config/db');
+const { recordUniqueView } = require('../utils/engagementTracking');
+const {
+  ensureCommunityFeatureSchema,
+  refreshEventAttendeeCount
+} = require('../utils/communityExtensions');
 
 const attachLikedByMe = async (events, userId) => {
   if (!userId || !Array.isArray(events) || events.length === 0) return events;
@@ -17,6 +22,131 @@ const attachLikedByMe = async (events, userId) => {
   }));
 };
 const Notification = require('../models/Notification');
+
+const getEmptyEventSocialBundle = () => ({
+  attendee_preview: [],
+  attendee_count: 0,
+  my_rsvp: null,
+  photo_drops: [],
+  suggested_connections: []
+});
+
+const buildEventSocialBundle = async (eventId, currentUserId) => {
+  try {
+    await ensureCommunityFeatureSchema();
+
+    const attendeePreview = await all(
+      `
+        SELECT
+          er.user_id,
+          er.group_name,
+          er.guest_count,
+          er.status,
+          er.reminder_opt_in,
+          er.reminder_minutes,
+          u.username,
+          u.full_name,
+          u.course,
+          u.year_of_study,
+          u.avatar_url
+        FROM event_registrations er
+        INNER JOIN users u ON u.id = er.user_id
+        WHERE er.event_id = ?
+          AND er.status IN ('registered', 'attended')
+        ORDER BY er.checked_in DESC, er.registered_at ASC
+        LIMIT 10
+      `,
+      [eventId]
+    );
+
+    const photoDrops = await all(
+      `
+        SELECT
+          epd.*,
+          u.username AS uploader_username,
+          u.full_name AS uploader_full_name
+        FROM event_photo_drops epd
+        LEFT JOIN users u ON u.id = epd.uploader_id
+        WHERE epd.event_id = ?
+        ORDER BY epd.created_at DESC
+        LIMIT 12
+      `,
+      [eventId]
+    );
+
+    let myRsvp = null;
+    let suggestedConnections = [];
+
+    if (currentUserId) {
+      myRsvp = await get(
+        `
+          SELECT *
+          FROM event_registrations
+          WHERE event_id = ? AND user_id = ?
+        `,
+        [eventId, currentUserId]
+      );
+
+      const me = await get(
+        'SELECT course, year_of_study FROM users WHERE id = ?',
+        [currentUserId]
+      );
+
+      if (me?.course || me?.year_of_study) {
+        suggestedConnections = await all(
+          `
+            SELECT
+              u.id,
+              u.username,
+              u.full_name,
+              u.course,
+              u.year_of_study,
+              u.avatar_url,
+              CASE
+                WHEN ? IS NOT NULL AND u.course = ? THEN 'Same course'
+                WHEN ? IS NOT NULL AND u.year_of_study = ? THEN 'Same year of study'
+                ELSE 'Also attending'
+              END AS connection_reason
+            FROM event_registrations er
+            INNER JOIN users u ON u.id = er.user_id
+            WHERE er.event_id = ?
+              AND er.user_id <> ?
+              AND er.status IN ('registered', 'attended')
+              AND (
+                (? IS NOT NULL AND u.course = ?)
+                OR (? IS NOT NULL AND u.year_of_study = ?)
+              )
+            ORDER BY u.full_name ASC NULLS LAST, u.username ASC
+            LIMIT 5
+          `,
+          [
+            me.course || null,
+            me.course || null,
+            me.year_of_study || null,
+            me.year_of_study || null,
+            eventId,
+            currentUserId,
+            me.course || null,
+            me.course || null,
+            me.year_of_study || null,
+            me.year_of_study || null
+          ]
+        );
+      }
+    }
+
+    return {
+      attendee_preview: attendeePreview,
+      attendee_count: attendeePreview.reduce((sum, attendee) => sum + Math.max(1, Number(attendee.guest_count || 1)), 0),
+      my_rsvp: myRsvp,
+      photo_drops: photoDrops,
+      suggested_connections: suggestedConnections
+    };
+  } catch (error) {
+    console.error(`Event social bundle unavailable for event ${eventId}:`, error);
+    return getEmptyEventSocialBundle();
+  }
+};
 
 // Get all events with filtering and pagination
 const getEvents = async (req, res) => {
@@ -65,10 +195,14 @@ const getEvent = async (req, res) => {
       });
     }
 
-    // Increment view count for authenticated users
-    if (req.user) {
-      await Event.incrementViews(id);
-      event.views_count += 1;
+    const countedView = await recordUniqueView({
+      req,
+      contentType: 'event',
+      contentId: id,
+      incrementView: () => Event.incrementViews(id)
+    });
+    if (countedView) {
+      event.views_count = Number(event.views_count || 0) + 1;
     }
 
     let likedByMe = false;
@@ -77,11 +211,14 @@ const getEvent = async (req, res) => {
       likedByMe = !!row;
     }
 
+    const socialBundle = await buildEventSocialBundle(id, req.user?.id);
+
     res.json({
       success: true,
       data: {
         ...event,
-        likedByMe
+        likedByMe,
+        ...socialBundle
       }
     });
   } catch (error) {
@@ -410,6 +547,243 @@ const toggleEventLike = async (req, res) => {
   }
 };
 
+const upsertEventRsvp = async (req, res) => {
+  try {
+    await ensureCommunityFeatureSchema();
+
+    const eventId = Number(req.params.id);
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const guestCount = Math.max(1, Number(req.body.guest_count || 1));
+    const existing = await get(
+      'SELECT * FROM event_registrations WHERE event_id = ? AND user_id = ?',
+      [eventId, req.user.id]
+    );
+
+    const existingGuestCount = Number(existing?.guest_count || 0);
+    const availableCapacity = event.max_attendees
+      ? Number(event.max_attendees) - Number(event.current_attendees || 0) + existingGuestCount
+      : null;
+
+    if (availableCapacity !== null && guestCount > availableCapacity) {
+      return res.status(400).json({
+        success: false,
+        message: 'This RSVP exceeds the remaining event capacity'
+      });
+    }
+
+    if (existing) {
+      await run(
+        `
+          UPDATE event_registrations
+          SET status = 'registered',
+              group_name = ?,
+              guest_count = ?,
+              reminder_opt_in = ?,
+              reminder_minutes = ?,
+              networking_note = ?
+          WHERE id = ?
+        `,
+        [
+          req.body.group_name ? String(req.body.group_name).trim() : null,
+          guestCount,
+          Boolean(req.body.reminder_opt_in),
+          Number(req.body.reminder_minutes || 60),
+          req.body.networking_note ? String(req.body.networking_note).trim() : null,
+          existing.id
+        ]
+      );
+    } else {
+      const ticketNumber = `EVT-${eventId}-${req.user.id}-${Date.now()}`;
+      await run(
+        `
+          INSERT INTO event_registrations (
+            event_id, user_id, status, ticket_number, payment_status, group_name, guest_count,
+            reminder_opt_in, reminder_minutes, networking_note
+          ) VALUES (?, ?, 'registered', ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          eventId,
+          req.user.id,
+          ticketNumber,
+          event.is_paid ? 'pending' : 'paid',
+          req.body.group_name ? String(req.body.group_name).trim() : null,
+          guestCount,
+          Boolean(req.body.reminder_opt_in),
+          Number(req.body.reminder_minutes || 60),
+          req.body.networking_note ? String(req.body.networking_note).trim() : null
+        ]
+      );
+    }
+
+    const attendeeCount = await refreshEventAttendeeCount(eventId);
+    const rsvp = await get(
+      'SELECT * FROM event_registrations WHERE event_id = ? AND user_id = ?',
+      [eventId, req.user.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'RSVP saved successfully',
+      data: {
+        ...rsvp,
+        attendee_count: attendeeCount
+      }
+    });
+  } catch (error) {
+    console.error('Error saving event RSVP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save RSVP',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const checkInToEvent = async (req, res) => {
+  try {
+    await ensureCommunityFeatureSchema();
+
+    const eventId = Number(req.params.id);
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const registration = await get(
+      'SELECT * FROM event_registrations WHERE event_id = ? AND user_id = ?',
+      [eventId, req.user.id]
+    );
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'You need an RSVP before checking in'
+      });
+    }
+
+    const now = new Date();
+    const startDate = new Date(event.start_date);
+    const endDate = new Date(event.end_date);
+    const earlyWindow = new Date(startDate.getTime() - 12 * 60 * 60 * 1000);
+    const lateWindow = new Date(endDate.getTime() + 12 * 60 * 60 * 1000);
+
+    if (now < earlyWindow || now > lateWindow) {
+      return res.status(400).json({
+        success: false,
+        message: 'Check-in is only available near the event time'
+      });
+    }
+
+    await run(
+      `
+        UPDATE event_registrations
+        SET status = 'attended', checked_in = true, attended_at = ?
+        WHERE id = ?
+      `,
+      [now.toISOString(), registration.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Checked in successfully'
+    });
+  } catch (error) {
+    console.error('Error checking in to event:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check in',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const uploadEventPhoto = async (req, res) => {
+  try {
+    await ensureCommunityFeatureSchema();
+
+    const eventId = Number(req.params.id);
+    const event = await Event.findById(eventId);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const registration = await get(
+      'SELECT id FROM event_registrations WHERE event_id = ? AND user_id = ?',
+      [eventId, req.user.id]
+    );
+    const canUpload =
+      Boolean(registration) ||
+      String(event.organizer_id) === String(req.user.id) ||
+      ['admin', 'super_admin'].includes(req.user.role);
+
+    if (!canUpload) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only attendees, organizers, or admins can upload event photos'
+      });
+    }
+
+    await run(
+      `
+        INSERT INTO event_photo_drops (event_id, uploader_id, media_url, caption)
+        VALUES (?, ?, ?, ?)
+      `,
+      [
+        eventId,
+        req.user.id,
+        String(req.body.media_url).trim(),
+        req.body.caption ? String(req.body.caption).trim() : null
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Photo added to event drop successfully'
+    });
+  } catch (error) {
+    console.error('Error uploading event photo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload event photo',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const getEventSocial = async (req, res) => {
+  try {
+    const eventId = Number(req.params.id);
+    const bundle = await buildEventSocialBundle(eventId, req.user?.id);
+    res.json({
+      success: true,
+      data: bundle
+    });
+  } catch (error) {
+    console.error('Error fetching event social data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch event social data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   getEvents,
   getEvent,
@@ -420,5 +794,9 @@ module.exports = {
   getEventStats,
   getFeaturedEvents,
   getUpcomingEvents,
-  toggleEventLike
+  toggleEventLike,
+  upsertEventRsvp,
+  checkInToEvent,
+  uploadEventPhoto,
+  getEventSocial
 };

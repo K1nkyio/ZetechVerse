@@ -19,6 +19,13 @@ export interface Confession {
   moderation_reason?: string;
   ip_address?: string;
   user_agent?: string;
+  abuse_score?: number;
+  sentiment_score?: number;
+  sentiment_label?: string;
+  risk_level?: string;
+  auto_flagged?: boolean;
+  accountability_hash?: string;
+  report_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -53,4 +60,11 @@ export interface ConfessionStats {
   approved_confessions: number;
   rejected_confessions: number;
   hot_confessions: number;
+  flagged_confessions: number;
+  auto_flagged_confessions: number;
+  high_risk_confessions: number;
+  total_reports: number;
+  average_abuse_score: number;
+  sentiment_distribution?: Array<{ label: string; count: number }>;
+  risk_distribution?: Array<{ level: string; count: number }>;
 }

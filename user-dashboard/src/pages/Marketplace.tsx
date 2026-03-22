@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/ui/page-header';
+import { MessageDialog } from '@/components/MessageDialog';
+import { useAuthContext } from '@/contexts/auth-context';
 import { 
   Search, 
   Filter, 
@@ -38,7 +40,7 @@ import {
   Bookmark,
   History
 } from 'lucide-react';
-import { marketplaceApi } from '@/api/marketplace.api';
+import { marketplaceApi, type MarketplaceListing } from '@/api/marketplace.api';
 import { useCartWishlistContext } from '@/contexts/cart-wishlist-context';
 import { getStored, setStored, upsertRecent } from '@/lib/storage';
 import { trackEvent } from '@/lib/analytics';
@@ -87,6 +89,7 @@ const sortOptions = [
 const Marketplace = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState(getStored<string>('zv:market:search', ''));
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +108,10 @@ const Marketplace = () => {
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => getStored<string[]>('zv:market:recent', []));
   const [savedSearches, setSavedSearches] = useState<string[]>(() => getStored<string[]>('zv:market:saved', []));
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [selectedMessageListing, setSelectedMessageListing] = useState<MarketplaceListing | null>(null);
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
+  const { user, isAuthenticated } = useAuthContext();
 
   // Helper function to handle price range changes
   const handlePriceRangeChange = (value: number[]) => {
@@ -325,6 +331,44 @@ const Marketplace = () => {
     navigate('/checkout');
   };
 
+  const handleOpenMessageDialog = (listing: MarketplaceListing) => {
+    const whatsappNumber = String(listing.phone || '').replace(/\D/g, '');
+    if (whatsappNumber) {
+      window.open(`https://wa.me/${whatsappNumber}`, '_blank');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast({
+        title: 'Login required',
+        description: 'Please log in to message the seller when no WhatsApp number is available.',
+        variant: 'destructive',
+      });
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
+    if (!listing.seller_id) {
+      toast({
+        title: 'Seller unavailable',
+        description: 'This listing does not have a valid seller to message.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (Number(user?.id) === Number(listing.seller_id)) {
+      toast({
+        title: 'This is your listing',
+        description: 'You cannot send a message to yourself.',
+      });
+      return;
+    }
+
+    setSelectedMessageListing(listing);
+    setMessageDialogOpen(true);
+  };
+
   const activeConditionCount = isServiceOrHostelCategory ? 0 : selectedConditions.length;
   const activeFiltersCount = activeConditionCount + selectedLocations.length +
     (priceRange[0] > 0 || priceRange[1] < maxPrice ? 1 : 0);
@@ -515,12 +559,12 @@ const Marketplace = () => {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="h-[80vh]">
+              <SheetContent side="right" className="w-full sm:w-96">
                 <SheetHeader>
                   <SheetTitle>Filter Listings</SheetTitle>
                 </SheetHeader>
 
-                <div className="space-y-6 mt-6 overflow-y-auto">
+                <div className="space-y-6 mt-6 overflow-y-auto pr-1">
                   {/* Price Range */}
                   <div>
                     <h4 className="font-medium mb-3">Price Range (KES)</h4>
@@ -853,11 +897,7 @@ const Marketplace = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          // Handle quick message - could open a modal or navigate
-                          toast({
-                            title: 'Quick Contact',
-                            description: 'Contact feature coming soon!',
-                          });
+                          handleOpenMessageDialog(listing);
                         }}
                       >
                         <MessageCircle className="h-3 w-3 mr-1" />
@@ -938,6 +978,22 @@ const Marketplace = () => {
           </div>
         )}
       </main>
+      {selectedMessageListing && (
+        <MessageDialog
+          open={messageDialogOpen}
+          onOpenChange={(open) => {
+            setMessageDialogOpen(open);
+            if (!open) {
+              setSelectedMessageListing(null);
+            }
+          }}
+          sellerId={Number(selectedMessageListing.seller_id)}
+          sellerName={selectedMessageListing.seller_full_name || selectedMessageListing.seller_username || 'Seller'}
+          listingId={Number(selectedMessageListing.id)}
+          listingTitle={selectedMessageListing.title}
+          sellerPhone={selectedMessageListing.phone}
+        />
+      )}
       <Footer />
     </div>
   );

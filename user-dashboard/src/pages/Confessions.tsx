@@ -317,7 +317,10 @@ const Confessions = () => {
     setReportDialogOpen(true);
   };
 
-  const submitReport = () => {
+  const submitReport = async () => {
+    if (!reportingConfession) return;
+    if (!requireAuth('report confessions')) return;
+
     if (!reportingConfession || !reportReason.trim()) {
       toast({
         title: 'Reason required',
@@ -327,16 +330,32 @@ const Confessions = () => {
       return;
     }
 
-    trackEvent('confession_report_submitted', {
-      confessionId: reportingConfession.id,
-      reason: reportReason,
-      details: reportDetails,
-    });
-    toast({
-      title: 'Report submitted',
-      description: 'Moderators will review this report shortly.',
-    });
-    setReportDialogOpen(false);
+    try {
+      const result = await confessionsApi.reportConfession(reportingConfession.id, {
+        reason: reportReason,
+        details: reportDetails || undefined,
+      });
+      trackEvent('confession_report_submitted', {
+        confessionId: reportingConfession.id,
+        reason: reportReason,
+        details: reportDetails,
+      });
+      toast({
+        title: 'Report submitted',
+        description: result.report_count >= 3
+          ? 'This confession has reached the community review threshold.'
+          : 'Moderators will review this report shortly.',
+      });
+      setReportDialogOpen(false);
+      setReportReason('');
+      setReportDetails('');
+    } catch (error: unknown) {
+      toast({
+        title: 'Report failed',
+        description: getErrorMessage(error, 'Could not submit this report.'),
+        variant: 'destructive',
+      });
+    }
   };
 
   const fetchComments = async (confessionId: number, page: number = 1, append: boolean = false) => {
@@ -491,6 +510,9 @@ const Confessions = () => {
               value={newConfession}
               onChange={(e) => setNewConfession(e.target.value)}
             />
+            <div className="mb-4 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
+              Anonymous to the community, accountable to moderation. High-risk or abusive content is auto-prioritized for review.
+            </div>
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>Your identity is protected. Posts are moderated.</p>
@@ -914,4 +936,3 @@ const Confessions = () => {
 };
 
 export default Confessions;
-

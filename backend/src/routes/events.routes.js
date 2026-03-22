@@ -13,7 +13,11 @@ const {
   getEventStats,
   getFeaturedEvents,
   getUpcomingEvents,
-  toggleEventLike
+  toggleEventLike,
+  upsertEventRsvp,
+  checkInToEvent,
+  uploadEventPhoto,
+  getEventSocial
 } = require('../controllers/events.controller');
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
@@ -117,16 +121,29 @@ const eventValidation = [
 router.get('/', optionalAuth, getEvents); // Get all events
 router.get('/featured', optionalAuth, getFeaturedEvents); // Get featured events
 router.get('/upcoming', optionalAuth, getUpcomingEvents); // Get upcoming events
-router.get('/:id', optionalAuth, getEvent); // Get single event
+router.get('/:id/social', optionalAuth, getEventSocial); // Get event social data
 
 // Authenticated routes
 router.get('/user/my-events', authenticateToken, getMyEvents); // Get user's events
 router.get('/user/stats', authenticateToken, getEventStats); // Get event stats
 router.post('/:id/like', authenticateToken, toggleEventLike); // Like/unlike event
+router.post('/:id/rsvp', authenticateToken, [
+  body('group_name').optional().trim().isLength({ max: 120 }).withMessage('group_name must be under 120 characters'),
+  body('guest_count').optional().isInt({ min: 1, max: 10 }).withMessage('guest_count must be between 1 and 10'),
+  body('reminder_opt_in').optional().isBoolean().withMessage('reminder_opt_in must be a boolean'),
+  body('reminder_minutes').optional().isInt({ min: 15, max: 10080 }).withMessage('reminder_minutes must be between 15 and 10080'),
+  body('networking_note').optional().trim().isLength({ max: 300 }).withMessage('networking_note must be under 300 characters')
+], upsertEventRsvp);
+router.post('/:id/check-in', authenticateToken, checkInToEvent);
+router.post('/:id/photos', authenticateToken, [
+  body('media_url').trim().isLength({ min: 5, max: 500 }).withMessage('media_url is required'),
+  body('caption').optional().trim().isLength({ max: 500 }).withMessage('caption must be under 500 characters')
+], uploadEventPhoto);
 
 // Admin routes
 router.post('/', authenticateToken, requireUserOrAdmin, eventValidation, createEvent); // Create event
 router.put('/:id', authenticateToken, requireUserOrAdmin, eventValidation, updateEvent); // Update event
 router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteEvent); // Delete event
+router.get('/:id', optionalAuth, getEvent); // Get single event
 
 module.exports = router;

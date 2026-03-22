@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/auth-context';
 import { LogoutButton } from '@/components/LogoutButton';
+import { getProfileCompletionSummary } from '@/lib/profile-completion';
 
 interface ProfileDropdownProps {
   onCloseMenu?: () => void;
@@ -20,14 +21,9 @@ const ProfileDropdown = ({ onCloseMenu }: ProfileDropdownProps = {}) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthContext();
-  const completionChecks = [
-    Boolean(user?.full_name?.trim()),
-    Boolean(user?.avatar_url),
-    Boolean(user?.bio?.trim()),
-    Boolean(user?.email_verified),
-  ];
-  const completion = Math.round((completionChecks.filter(Boolean).length / completionChecks.length) * 100);
-  const statusLabel = completion >= 75 ? 'Complete' : completion >= 50 ? 'In progress' : 'Needs setup';
+  const { percentage: completion, statusLabel } = getProfileCompletionSummary(user, null, {
+    includeCareer: false
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -67,7 +63,7 @@ const ProfileDropdown = ({ onCloseMenu }: ProfileDropdownProps = {}) => {
             navigate('/login');
             onCloseMenu?.();
           }}
-          className="h-9 px-3 text-sm"
+          className="h-9 rounded-full border border-border/70 bg-background/35 px-4 text-sm text-foreground shadow-none hover:bg-muted/70 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
         >
           Sign In
         </Button>
@@ -78,7 +74,7 @@ const ProfileDropdown = ({ onCloseMenu }: ProfileDropdownProps = {}) => {
             navigate('/register');
             onCloseMenu?.();
           }}
-          className="h-9 px-3 text-sm"
+          className="h-9 rounded-full px-4 text-sm font-semibold shadow-[0_16px_32px_-18px_hsl(var(--primary)/0.95)]"
         >
           Sign Up
         </Button>

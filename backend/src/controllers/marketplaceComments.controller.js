@@ -2,6 +2,10 @@ const { validationResult } = require('express-validator');
 const MarketplaceComment = require('../models/MarketplaceComment');
 const MarketplaceListing = require('../models/MarketplaceListing');
 const { db } = require('../config/db');
+const {
+  likeMarketplaceComment,
+  unlikeMarketplaceComment
+} = require('../utils/engagementTracking');
 
 // Get all comments for a marketplace listing
 const getComments = async (req, res) => {
@@ -352,11 +356,18 @@ const likeComment = async (req, res) => {
       });
     }
 
-    await MarketplaceComment.incrementLikes(commentId);
+    const likesCount = await likeMarketplaceComment({
+      commentId,
+      userId: req.user.id
+    });
 
     res.json({
       success: true,
-      message: 'Comment liked successfully'
+      message: 'Comment liked successfully',
+      data: {
+        liked: true,
+        likes_count: likesCount
+      }
     });
   } catch (error) {
     console.error('Error liking marketplace comment:', error);
@@ -381,13 +392,18 @@ const unlikeComment = async (req, res) => {
       });
     }
 
-    if (comment.likes_count > 0) {
-      await MarketplaceComment.decrementLikes(commentId);
-    }
+    const likesCount = await unlikeMarketplaceComment({
+      commentId,
+      userId: req.user.id
+    });
 
     res.json({
       success: true,
-      message: 'Comment unliked successfully'
+      message: 'Comment unliked successfully',
+      data: {
+        liked: false,
+        likes_count: likesCount
+      }
     });
   } catch (error) {
     console.error('Error unliking marketplace comment:', error);

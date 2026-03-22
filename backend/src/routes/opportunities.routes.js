@@ -154,17 +154,17 @@ const opportunityValidation = [
 // Public routes
 router.get('/', getOpportunities); // Get all opportunities with filtering
 router.get('/featured', getFeaturedOpportunities); // Get featured opportunities
+
+// Protected routes
+router.get('/user/stats', authenticateToken, requireUserOrAdmin, getOpportunityStats); // Get user opportunity stats
+router.get('/user/my-opportunities', authenticateToken, requireUserOrAdmin, getMyOpportunities); // Get user's opportunities
+
+// Public detail route
 router.get('/:id', getOpportunity); // Get single opportunity
 
-// Protected routes (require authentication)
-router.use(authenticateToken); // All routes below require authentication
-
-router.get('/user/stats', requireUserOrAdmin, getOpportunityStats); // Get user opportunity stats
-router.get('/user/my-opportunities', requireUserOrAdmin, getMyOpportunities); // Get user's opportunities
-
 // Admin/Super admin routes
-router.post('/', requireUserOrAdmin, opportunityValidation, createOpportunity); // Create opportunity
-router.put('/:id', requireUserOrAdmin, opportunityValidation, updateOpportunity); // Update opportunity
-router.delete('/:id', requireUserOrAdmin, deleteOpportunity); // Delete opportunity
+router.post('/', authenticateToken, requireUserOrAdmin, opportunityValidation, createOpportunity); // Create opportunity
+router.put('/:id', authenticateToken, requireUserOrAdmin, opportunityValidation, updateOpportunity); // Update opportunity
+router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteOpportunity); // Delete opportunity
 
 module.exports = router;

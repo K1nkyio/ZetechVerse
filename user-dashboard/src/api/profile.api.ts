@@ -1,5 +1,6 @@
 import { apiClient } from './base';
 import { authService } from '@/services/auth.service';
+import { uploadsApi } from './uploads.api';
 
 export interface UserProfile {
   id: string;
@@ -77,18 +78,15 @@ class ProfileApi {
 
   async uploadAvatar(file: File): Promise<{ avatar_url: string }> {
     try {
-      // For file uploads, we need to create a new FormData
-      const formData = new FormData();
-      formData.append('avatar', file);
-      
-      // Set up headers for file upload
-      const response = await apiClient.post<{ avatar_url: string }>('/auth/upload-avatar', formData);
-      
-      if (response.success && response.data) {
-        return response.data;
+      const uploaded = await uploadsApi.uploadMedia(file);
+
+      if (uploaded.media_type !== 'image') {
+        throw new Error('Please upload an image file for your profile photo.');
       }
-      
-      throw new Error(response.message || 'Failed to upload avatar');
+
+      return {
+        avatar_url: uploaded.url
+      };
     } catch (error) {
       console.error('Error uploading avatar:', error);
       throw error;

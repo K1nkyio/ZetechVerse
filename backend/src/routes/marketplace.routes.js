@@ -12,7 +12,13 @@ const {
   deleteListing,
   getMyListings,
   getMarketplaceStats,
-  toggleListingLike
+  toggleListingLike,
+  reserveListing,
+  releaseReservation,
+  submitSellerReview,
+  reportListing,
+  recordTransaction,
+  getUserTransactions
 } = require('../controllers/marketplace.controller');
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
@@ -282,16 +288,36 @@ const updateValidation = [
 // Public routes
 router.get('/', optionalAuth, getListings); // Get all marketplace listings
 router.get('/categories', optionalAuth, getMarketplaceCategories); // Get marketplace categories
-router.get('/:id', optionalAuth, getListing); // Get single listing
 
 // Authenticated routes
 router.get('/user/my-listings', authenticateToken, getMyListings); // Get user's listings
 router.get('/user/stats', authenticateToken, getMarketplaceStats); // Get marketplace stats
+router.get('/user/transactions', authenticateToken, getUserTransactions); // Get user's transaction history
 router.post('/:id/like', authenticateToken, toggleListingLike); // Like/unlike listing
+router.post('/:id/reserve', authenticateToken, [
+  body('message').optional().trim().isLength({ max: 500 }).withMessage('Reservation message must be under 500 characters')
+], reserveListing);
+router.delete('/:id/reserve', authenticateToken, releaseReservation);
+router.post('/:id/reviews', authenticateToken, [
+  body('rating').isInt({ min: 1, max: 5 }).withMessage('rating must be between 1 and 5'),
+  body('review_text').optional().trim().isLength({ max: 1000 }).withMessage('review_text must be under 1000 characters')
+], submitSellerReview);
+router.post('/:id/report', authenticateToken, [
+  body('reason').trim().isLength({ min: 3, max: 120 }).withMessage('reason must be between 3 and 120 characters'),
+  body('details').optional().trim().isLength({ max: 1000 }).withMessage('details must be under 1000 characters'),
+  body('risk_level').optional().isIn(['low', 'medium', 'high']).withMessage('Invalid risk level')
+], reportListing);
+router.post('/:id/transactions', authenticateToken, [
+  body('amount').optional().isFloat({ min: 0 }).withMessage('amount must be a positive number'),
+  body('payment_status').optional().isIn(['pending', 'paid', 'refunded']).withMessage('Invalid payment status'),
+  body('meetup_status').optional().isIn(['planned', 'completed', 'cancelled']).withMessage('Invalid meetup status'),
+  body('note').optional().trim().isLength({ max: 1000 }).withMessage('note must be under 1000 characters')
+], recordTransaction);
 
 // Admin routes
 router.post('/', authenticateToken, requireUserOrAdmin, normalizeListingPayload, createValidation, createListing); // Create listing
 router.put('/:id', authenticateToken, requireUserOrAdmin, normalizeListingPayload, updateValidation, updateListing); // Update listing
 router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteListing); // Delete listing
+router.get('/:id', optionalAuth, getListing); // Get single listing
 
 module.exports = router;

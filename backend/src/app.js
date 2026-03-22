@@ -18,6 +18,7 @@ const analyticsRoutes = require('./routes/analytics.routes');
 const commentsRoutes = require('./routes/comments.routes');
 const uploadsRoutes = require('./routes/uploads.routes');
 const paymentsRoutes = require('./routes/payments.routes');
+const careerRoutes = require('./routes/career.routes');
 const { getUploadsRoot } = require('./config/uploads');
 
 // Import database connection
@@ -131,6 +132,7 @@ app.use('/api/analytics', apiLimiter, analyticsRoutes);
 app.use('/api/comments', apiLimiter, commentsRoutes);
 app.use('/api/uploads', apiLimiter, uploadsRoutes);
 app.use('/api/payments', apiLimiter, paymentsRoutes);
+app.use('/api/career', apiLimiter, careerRoutes);
 
 // ---------- 404 HANDLER ----------
 app.use('/api/*', (req, res) => {
