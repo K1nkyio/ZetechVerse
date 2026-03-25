@@ -576,6 +576,9 @@ const listAdminAccounts = async (req, res) => {
         u.full_name,
         u.role,
         u.admin_status,
+        u.is_active,
+        u.created_at,
+        u.last_login_at,
         u.admin_requested_at,
         u.admin_approved_at,
         u.admin_approved_by,
@@ -603,7 +606,7 @@ const listAdminAccounts = async (req, res) => {
 
 const approveAdminAccount = async (req, res) => {
   try {
-    const { admin_id, email } = req.body;
+    const { admin_id, email, reason } = req.body;
     const { ip, userAgent } = getRequestMeta(req);
 
     if (!admin_id && !email) {
@@ -643,7 +646,8 @@ const approveAdminAccount = async (req, res) => {
       description: JSON.stringify({
         approved_by: req.user.id,
         approved_by_email: req.user.email,
-        approved_by_username: req.user.username
+        approved_by_username: req.user.username,
+        reason: reason || null
       }),
       ip,
       userAgent
@@ -727,11 +731,51 @@ const deactivateAdminAccount = async (req, res) => {
 const listAdminAudit = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const entityType = String(req.query.entity_type || 'all').trim().toLowerCase();
+    const action = String(req.query.action || 'all').trim().toLowerCase();
+    const targetId = req.query.target_id ? Number(req.query.target_id) : null;
+    const where = [];
+    const params = [];
+
+    if (entityType === 'admin_account' || entityType === 'user_account') {
+      where.push('a.entity_type = ?');
+      params.push(entityType);
+    } else {
+      where.push(`a.entity_type IN ('admin_account', 'user_account')`);
+    }
+
+    if (action && action !== 'all') {
+      where.push('LOWER(a.action) = ?');
+      params.push(action);
+    }
+
+    if (Number.isFinite(targetId)) {
+      where.push('a.entity_id = ?');
+      params.push(targetId);
+    }
+
+    if (q) {
+      const likeQuery = `%${q}%`;
+      where.push(`
+        (
+          LOWER(COALESCE(actor.email, '')) LIKE ?
+          OR LOWER(COALESCE(actor.username, '')) LIKE ?
+          OR LOWER(COALESCE(target.email, '')) LIKE ?
+          OR LOWER(COALESCE(target.username, '')) LIKE ?
+          OR LOWER(COALESCE(a.action, '')) LIKE ?
+          OR LOWER(COALESCE(a.description, '')) LIKE ?
+        )
+      `);
+      params.push(likeQuery, likeQuery, likeQuery, likeQuery, likeQuery, likeQuery);
+    }
+
     const logs = await all(`
       SELECT
         a.id,
         a.user_id,
         a.entity_id,
+        a.entity_type,
         a.action,
         a.description,
         a.ip_address,
@@ -744,10 +788,10 @@ const listAdminAudit = async (req, res) => {
       FROM activity_logs a
       LEFT JOIN users actor ON a.user_id = actor.id
       LEFT JOIN users target ON a.entity_id = target.id
-      WHERE a.entity_type = 'admin_account'
+      ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY a.created_at DESC
       LIMIT ?
-    `, [limit]);
+    `, [...params, limit]);
 
     res.json({
       success: true,
@@ -873,7 +917,7 @@ const deactivateUserAccount = async (req, res) => {
 
 const activateUserAccount = async (req, res) => {
   try {
-    const { user_id, email } = req.body;
+    const { user_id, email, reason } = req.body;
     const { ip, userAgent } = getRequestMeta(req);
 
     if (!user_id && !email) {
@@ -921,7 +965,8 @@ const activateUserAccount = async (req, res) => {
       description: JSON.stringify({
         activated_by: req.user.id,
         activated_by_email: req.user.email,
-        activated_by_username: req.user.username
+        activated_by_username: req.user.username,
+        reason: reason || null
       }),
       ip,
       userAgent

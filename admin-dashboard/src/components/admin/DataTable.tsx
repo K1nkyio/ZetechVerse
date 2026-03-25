@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export interface Column<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   render?: (item: T) => React.ReactNode;
   className?: string;
 }
@@ -26,6 +26,8 @@ interface DataTableProps<T> {
   searchKey?: keyof T;
   pageSize?: number;
   className?: string;
+  rowKey?: keyof T | ((item: T, index: number) => React.Key);
+  emptyMessage?: React.ReactNode;
 }
 
 export function DataTable<T extends { [key: string]: unknown }>({
@@ -35,6 +37,8 @@ export function DataTable<T extends { [key: string]: unknown }>({
   searchKey,
   pageSize = 10,
   className,
+  rowKey,
+  emptyMessage = "No results found.",
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,6 +52,11 @@ export function DataTable<T extends { [key: string]: unknown }>({
   const totalPages = Math.ceil(filteredData.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const paginatedData = filteredData.slice(startIndex, startIndex + pageSize);
+  const resolveRowKey = (item: T, index: number) => {
+    if (typeof rowKey === "function") return rowKey(item, index);
+    if (rowKey) return String(item[rowKey] ?? index);
+    return index;
+  };
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -87,12 +96,12 @@ export function DataTable<T extends { [key: string]: unknown }>({
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No results found.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             ) : (
               paginatedData.map((item, index) => (
-                <TableRow key={index} className="data-table-row">
+                <TableRow key={resolveRowKey(item, index)} className="data-table-row">
                   {columns.map((column) => (
                     <TableCell key={column.key} className={column.className}>
                       {column.render

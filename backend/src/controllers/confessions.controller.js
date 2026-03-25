@@ -455,20 +455,20 @@ const getConfessionStats = async (req, res) => {
     const pendingApprovals = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'pending'");
     const approvedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'approved'");
     const rejectedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'rejected'");
-    const hotConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE is_hot = 1");
+    const hotConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE is_hot = TRUE");
     const flaggedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE status = 'flagged'");
-    const autoFlaggedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE auto_flagged = true");
+    const autoFlaggedConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE auto_flagged = TRUE");
     const highRiskConfessions = await get("SELECT COUNT(*) as count FROM confessions WHERE risk_level = 'high'");
     const totalReports = await get("SELECT COUNT(*) as count FROM confession_reports");
-    const averageAbuseScore = await get("SELECT COALESCE(ROUND(AVG(abuse_score)::numeric, 1), 0) as score FROM confessions");
+    const averageAbuseScore = await get("SELECT COALESCE(ROUND(AVG(abuse_score), 1), 0) as score FROM confessions");
     const sentimentDistribution = await all(`
-      SELECT sentiment_label as label, COUNT(*)::INTEGER as count
+      SELECT sentiment_label as label, COUNT(*) as count
       FROM confessions
       GROUP BY sentiment_label
       ORDER BY count DESC
     `);
     const riskDistribution = await all(`
-      SELECT risk_level as level, COUNT(*)::INTEGER as count
+      SELECT risk_level as level, COUNT(*) as count
       FROM confessions
       GROUP BY risk_level
       ORDER BY count DESC

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -48,6 +48,8 @@
     --ring: 199 89% 48%;
 
     --radius: 0.75rem;
+    --font-sans: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
 
     /* Admin Dashboard Specific */
     --admin-sidebar: 222 47% 11%;
@@ -117,17 +119,23 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-sans);
+    letter-spacing: 0.002em;
+    background-image:
+      radial-gradient(circle at top right, hsl(var(--primary) / 0.07), transparent 32%),
+      radial-gradient(circle at bottom left, hsl(var(--accent) / 0.06), transparent 28%);
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: var(--font-display);
+    letter-spacing: -0.035em;
   }
 }
 
 @layer components {
   .admin-card {
     @apply bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200;
+    background-image: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background) / 0.96) 100%);
   }
 
   .stat-card {
@@ -153,6 +161,10 @@
 
   .badge-status {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .admin-portal .font-display {
+    letter-spacing: -0.035em;
   }
 
   /* Slightly reduce typography intensity across admin/super-admin surfaces. */
