@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "react-router-dom";
 import { notificationsApi, type Notification } from "@/api/notifications.api";
 import { trackEvent } from "@/lib/analytics";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const NAV_BADGE_CLASS =
   'absolute -top-1 -right-1 h-5 min-w-[1.25rem] rounded-full px-1 flex items-center justify-center text-[10px] font-semibold ring-2 ring-background';
@@ -25,10 +26,12 @@ export function NotificationBell() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const dropdownAlign = isMobile ? "center" : "end";
 
   useEffect(() => {
     // Only fetch notifications if user is authenticated
@@ -254,7 +257,7 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-1rem))] sm:w-80">
+      <DropdownMenuContent align={dropdownAlign} collisionPadding={8} className="w-[min(22rem,calc(100vw-1rem))] sm:w-80">
         <DropdownMenuLabel className="flex flex-wrap items-center justify-between gap-2">
           <span>Notifications</span>
           {unreadCount > 0 && (

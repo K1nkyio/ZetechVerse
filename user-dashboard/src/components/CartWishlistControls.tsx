@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCartWishlistContext } from '@/contexts/cart-wishlist-context';
 import { useToast } from '@/hooks/use-toast';
 import { applyImageFallback, normalizeImageUrl } from '@/lib/image';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CartWishlistControlsProps {
   wishlistFirst?: boolean;
@@ -28,6 +29,7 @@ const formatPrice = (price: number | string) => {
 
 export function CartWishlistControls({ wishlistFirst = false }: CartWishlistControlsProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   const {
     cartItems,
@@ -42,6 +44,7 @@ export function CartWishlistControls({ wishlistFirst = false }: CartWishlistCont
     removeFromWishlist,
     clearWishlist
   } = useCartWishlistContext();
+  const dropdownAlign = isMobile ? 'center' : 'end';
 
   return (
     <div className="flex items-center gap-1.5">
@@ -60,7 +63,7 @@ export function CartWishlistControls({ wishlistFirst = false }: CartWishlistCont
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[min(24rem,calc(100vw-1rem))] sm:w-96">
+          <DropdownMenuContent align={dropdownAlign} collisionPadding={8} className="w-[min(24rem,calc(100vw-1rem))] sm:w-96">
             <DropdownMenuLabel className="flex items-center justify-between gap-2">
               <span>Cart</span>
               {cartItems.length > 0 && (
@@ -180,7 +183,7 @@ export function CartWishlistControls({ wishlistFirst = false }: CartWishlistCont
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[min(24rem,calc(100vw-1rem))] sm:w-96">
+          <DropdownMenuContent align={dropdownAlign} collisionPadding={8} className="w-[min(24rem,calc(100vw-1rem))] sm:w-96">
             <DropdownMenuLabel className="flex items-center justify-between gap-2">
               <span>Wishlist</span>
               {wishlistItems.length > 0 && (

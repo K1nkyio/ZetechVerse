@@ -46,7 +46,7 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/76 shadow-[0_18px_40px_-30px_hsl(var(--foreground)/0.45)] backdrop-blur-xl supports-[backdrop-filter]:bg-background/72 dark:border-white/10 dark:bg-background/58 dark:shadow-[0_18px_40px_-30px_rgba(0,0,0,0.9)]">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background shadow-[0_18px_40px_-30px_hsl(var(--foreground)/0.45)] dark:border-white/10 dark:bg-background dark:shadow-[0_18px_40px_-30px_rgba(0,0,0,0.9)] md:bg-background/76 md:backdrop-blur-xl md:supports-[backdrop-filter]:bg-background/72 md:dark:bg-background/58">
       <div className="container mx-auto px-3 sm:px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
@@ -106,7 +106,6 @@ const Header = () => {
           {/* Mobile Header Controls */}
           <div className="flex md:hidden items-center gap-1">
             {isAuthenticated ? <NotificationBell /> : null}
-            {isAuthenticated ? <CartWishlistControls wishlistFirst /> : null}
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -122,7 +121,7 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden fixed top-14 sm:top-16 left-0 right-0 border-b border-border/70 bg-background/88 shadow-[0_16px_40px_-28px_hsl(var(--foreground)/0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-background/84 z-50 animate-in slide-in-from-top-2">
+          <div className="md:hidden fixed top-14 sm:top-16 left-0 right-0 z-50 animate-in slide-in-from-top-2 border-b border-border/70 bg-background shadow-[0_16px_40px_-28px_hsl(var(--foreground)/0.5)] dark:border-white/10 dark:bg-background">
             <div className="max-h-[calc(100vh-3.5rem)] sm:max-h-[calc(100vh-4rem)] overflow-y-auto">
               <div className="py-3 sm:py-4">
                 {/* Mobile Search */}
@@ -140,13 +139,14 @@ const Header = () => {
                   </div>
                 </form>
 
-                {/* Notifications for Mobile */}
+                {/* Quick Access for Mobile */}
                 <div className="px-3 sm:px-4 mb-3 sm:mb-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-sans font-medium text-muted-foreground">
                       {isAuthenticated ? t('header.quickAccess') : 'Account'}
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {isAuthenticated ? <CartWishlistControls wishlistFirst /> : null}
                       <ProfileDropdown onCloseMenu={() => setIsMenuOpen(false)} />
                     </div>
                   </div>

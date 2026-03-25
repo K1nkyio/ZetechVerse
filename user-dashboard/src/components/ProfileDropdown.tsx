@@ -11,6 +11,8 @@ import {
 import { useAuthContext } from '@/contexts/auth-context';
 import { LogoutButton } from '@/components/LogoutButton';
 import { getProfileCompletionSummary } from '@/lib/profile-completion';
+import { profileApi, type UserProfile } from '@/api/profile.api';
+import { careerApi, type CareerProfile } from '@/api/career.api';
 
 interface ProfileDropdownProps {
   onCloseMenu?: () => void;
@@ -18,12 +20,55 @@ interface ProfileDropdownProps {
 
 const ProfileDropdown = ({ onCloseMenu }: ProfileDropdownProps = {}) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [profileDetails, setProfileDetails] = useState<UserProfile | null>(null);
+  const [careerDetails, setCareerDetails] = useState<CareerProfile | null>(null);
+  const [completionLoading, setCompletionLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthContext();
-  const { percentage: completion, statusLabel } = getProfileCompletionSummary(user, null, {
-    includeCareer: false
-  });
+  const completionSummary = getProfileCompletionSummary(profileDetails ?? user, careerDetails);
+  const { percentage: completion, statusLabel } = completionSummary;
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setProfileDetails(null);
+      setCareerDetails(null);
+      setCompletionLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadCompletionData = async () => {
+      try {
+        setCompletionLoading(true);
+        const [profileResult, careerResult] = await Promise.allSettled([
+          profileApi.getProfile(),
+          careerApi.getProfile(),
+        ]);
+
+        if (!isActive) return;
+
+        if (profileResult.status === 'fulfilled') {
+          setProfileDetails(profileResult.value);
+        }
+
+        if (careerResult.status === 'fulfilled') {
+          setCareerDetails(careerResult.value);
+        }
+      } finally {
+        if (isActive) {
+          setCompletionLoading(false);
+        }
+      }
+    };
+
+    void loadCompletionData();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAuthenticated, isOpen, user?.id, user?.updated_at]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -137,13 +182,15 @@ const ProfileDropdown = ({ onCloseMenu }: ProfileDropdownProps = {}) => {
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-muted-foreground">Profile</span>
                   <Badge variant={completion >= 75 ? 'default' : 'secondary'} className="text-[10px]">
-                    {statusLabel}
+                    {completionLoading ? 'Syncing' : statusLabel}
                   </Badge>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className="h-full bg-primary transition-all" style={{ width: `${completion}%` }} />
                 </div>
-                <p className="text-[11px] text-muted-foreground">{completion}% complete</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {completionLoading ? 'Checking setup...' : `${completion}% complete`}
+                </p>
               </div>
             </div>
 
