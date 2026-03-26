@@ -1,4 +1,22 @@
-import { apiClient, handleApiResponse, ApiResponse } from './base';
+import { apiClient, handleApiResponse } from './base';
+
+export type ListingKind = 'product' | 'service' | 'hostel';
+export type ServicePricingModel =
+  | 'per_hour'
+  | 'per_task_assignment'
+  | 'subscription_package'
+  | 'pay_per_consultation_meeting'
+  | 'freemium_addons'
+  | 'tiered_pricing'
+  | 'pay_what_you_want'
+  | 'commission_performance_based'
+  | 'group_bulk_rate'
+  | 'one_time_flat_fee'
+  | 'sliding_scale_income_based'
+  | 'retainer_monthly_contract'
+  | 'hybrid_hourly_task'
+  | 'trial_paid_upgrade'
+  | 'credit_token_system';
 
 export interface MarketplaceListing {
   id: number;
@@ -6,7 +24,7 @@ export interface MarketplaceListing {
   description?: string;
   price: number;
   category_id?: number;
-  listing_kind?: 'product' | 'service' | 'hostel';
+  listing_kind?: ListingKind;
   location: string;
   condition?: string | null;
   status: string;
@@ -14,22 +32,7 @@ export interface MarketplaceListing {
   image_urls?: string[];
   tags?: string[];
   service_details?: {
-    pricing_model?:
-      | 'per_hour'
-      | 'per_task_assignment'
-      | 'subscription_package'
-      | 'pay_per_consultation_meeting'
-      | 'freemium_addons'
-      | 'tiered_pricing'
-      | 'pay_what_you_want'
-      | 'commission_performance_based'
-      | 'group_bulk_rate'
-      | 'one_time_flat_fee'
-      | 'sliding_scale_income_based'
-      | 'retainer_monthly_contract'
-      | 'hybrid_hourly_task'
-      | 'trial_paid_upgrade'
-      | 'credit_token_system';
+    pricing_model?: ServicePricingModel;
     service_area?: string;
     availability?: string;
   };
@@ -100,6 +103,32 @@ export interface MarketplaceListing {
   }>;
 }
 
+export interface MarketplaceCategory {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface CreateMarketplaceListingData {
+  title: string;
+  description: string;
+  price: number;
+  category_id: number;
+  listing_kind?: ListingKind;
+  location?: string;
+  condition?: 'new' | 'used' | 'refurbished';
+  service_details?: MarketplaceListing['service_details'];
+  hostel_details?: MarketplaceListing['hostel_details'];
+  phone?: string;
+  image_urls?: string[];
+  tags?: string[];
+  contact_method?: 'phone' | 'email' | 'in_app';
+  is_negotiable?: boolean;
+  urgent?: boolean;
+  status?: 'active' | 'sold' | 'inactive';
+  expires_at?: string;
+}
+
 export interface MarketplaceComment {
   id: string;
   listing_id: string;
@@ -150,7 +179,7 @@ interface MarketplaceFilters {
   page?: number;
   limit?: number;
   category_id?: string;
-  listing_kind?: 'product' | 'service' | 'hostel';
+  listing_kind?: ListingKind;
   location?: string;
   condition?: string;
   status?: string;
@@ -203,6 +232,35 @@ class MarketplaceApi {
       console.error('Error fetching marketplace listings:', error);
       throw error;
     }
+  }
+
+  async getCategories(): Promise<MarketplaceCategory[]> {
+    const response = await apiClient.get<MarketplaceCategory[]>('/marketplace/categories');
+    return handleApiResponse(response);
+  }
+
+  async getMyListings(filters: { page?: number; limit?: number; status?: string } = {}): Promise<{
+    listings: MarketplaceListing[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+  }> {
+    const response = await apiClient.get<MarketplaceListing[]>('/marketplace/user/my-listings', filters);
+
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to fetch your listings');
+    }
+
+    const listings = Array.isArray(response.data) ? response.data : [];
+    const pagination = response.pagination || { page: 1, limit: 10, total: listings.length, pages: 1 };
+
+    return {
+      listings,
+      pagination,
+    };
   }
 
   async getListingById(id: string): Promise<MarketplaceListing> {
@@ -273,9 +331,9 @@ class MarketplaceApi {
     return handleApiResponse(response);
   }
 
-  async createListing(data: Partial<MarketplaceListing>): Promise<MarketplaceListing> {
+  async createListing(data: CreateMarketplaceListingData): Promise<{ id: number }> {
     try {
-      const response = await apiClient.post<MarketplaceListing>('/marketplace', data);
+      const response = await apiClient.post<{ id: number }>('/marketplace', data);
       return handleApiResponse(response);
     } catch (error) {
       console.error('Error creating listing:', error);
@@ -283,17 +341,17 @@ class MarketplaceApi {
     }
   }
 
-  async updateListing(id: string, data: Partial<MarketplaceListing>): Promise<MarketplaceListing> {
+  async updateListing(id: string | number, data: Partial<CreateMarketplaceListingData>): Promise<void> {
     try {
-      const response = await apiClient.put<MarketplaceListing>(`/marketplace/${id}`, data);
-      return handleApiResponse(response);
+      const response = await apiClient.put<void>(`/marketplace/${id}`, data);
+      handleApiResponse(response);
     } catch (error) {
       console.error('Error updating listing:', error);
       throw error;
     }
   }
 
-  async deleteListing(id: string): Promise<void> {
+  async deleteListing(id: string | number): Promise<void> {
     try {
       const response = await apiClient.delete(`/marketplace/${id}`);
       handleApiResponse(response);

@@ -33,7 +33,7 @@ export function useAuth() {
     };
   }, []);
 
-  const login = async (credentials: { email: string; password: string; remember_me?: boolean }) => {
+  const login = async (credentials: { identifier: string; password: string; remember_me?: boolean }) => {
     try {
       setLoading(true);
       const user = await authService.login(credentials);

@@ -23,7 +23,7 @@ export interface AuthTokens {
 }
 
 export interface LoginCredentials {
-  email: string;
+  identifier: string;
   password: string;
   remember_me?: boolean;
 }
@@ -218,7 +218,7 @@ class AuthService {
   async login(credentials: LoginCredentials): Promise<User> {
     try {
       const response = await apiClient.post<{ user: User; token: string }>('/auth/login', {
-        email: credentials.email,
+        identifier: credentials.identifier,
         password: credentials.password,
         remember_me: credentials.remember_me
       });

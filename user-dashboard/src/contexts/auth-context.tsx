@@ -27,7 +27,7 @@ interface AuthContextType {
   };
   
   // Authentication methods
-  login: (credentials: { email: string; password: string; remember_me?: boolean }) => Promise<User>;
+  login: (credentials: { identifier: string; password: string; remember_me?: boolean }) => Promise<User>;
   register: (data: { email: string; username: string; password: string; full_name?: string }) => Promise<User>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<User>;

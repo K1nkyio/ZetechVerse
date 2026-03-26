@@ -14,10 +14,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/ui/page-header';
 import { MessageDialog } from '@/components/MessageDialog';
+import { MarketplaceSellerForm } from '@/components/marketplace/MarketplaceSellerForm';
 import { useAuthContext } from '@/contexts/auth-context';
+import { handleApiError } from '@/api/base';
 import { 
   Search, 
-  Filter, 
   MapPin, 
   Clock, 
   Smartphone,
@@ -29,18 +30,22 @@ import {
   Star,
   CheckCircle,
   MessageCircle,
-  Phone,
   Heart,
   ShoppingCart,
   Share2,
   ArrowUpDown,
   SlidersHorizontal,
   X,
-  Package,
   Bookmark,
-  History
+  History,
+  PlusCircle,
+  Store,
+  Pencil,
+  Trash2,
+  Eye,
+  Loader2
 } from 'lucide-react';
-import { marketplaceApi, type MarketplaceListing } from '@/api/marketplace.api';
+import { marketplaceApi, type CreateMarketplaceListingData, type MarketplaceListing } from '@/api/marketplace.api';
 import { useCartWishlistContext } from '@/contexts/cart-wishlist-context';
 import { getStored, setStored, upsertRecent } from '@/lib/storage';
 import { trackEvent } from '@/lib/analytics';
@@ -91,7 +96,13 @@ const Marketplace = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState(getStored<string>('zv:market:search', ''));
-  const [listings, setListings] = useState([]);
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [myListings, setMyListings] = useState<MarketplaceListing[]>([]);
+  const [myListingsLoading, setMyListingsLoading] = useState(false);
+  const [sellerSheetOpen, setSellerSheetOpen] = useState(false);
+  const [myListingsSheetOpen, setMyListingsSheetOpen] = useState(false);
+  const [editingListing, setEditingListing] = useState<MarketplaceListing | null>(null);
+  const [sellerSubmitting, setSellerSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeCategory = searchParams.get('category') || 'all';
@@ -108,6 +119,8 @@ const Marketplace = () => {
   const [priceInitialized, setPriceInitialized] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => getStored<string[]>('zv:market:recent', []));
   const [savedSearches, setSavedSearches] = useState<string[]>(() => getStored<string[]>('zv:market:saved', []));
+  const [showRecentSearches, setShowRecentSearches] = useState<boolean>(() => getStored<boolean>('zv:market:recent:visible', true));
+  const [showSavedSearches, setShowSavedSearches] = useState<boolean>(() => getStored<boolean>('zv:market:saved:visible', true));
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [selectedMessageListing, setSelectedMessageListing] = useState<MarketplaceListing | null>(null);
   const { addToCart, toggleWishlist, isInWishlist } = useCartWishlistContext();
@@ -123,11 +136,23 @@ const Marketplace = () => {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setMyListings([]);
+      setMyListingsLoading(false);
+      return;
+    }
+
+    void fetchMyListings();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     setStored('zv:market:search', searchQuery);
     setStored('zv:market:conditions', selectedConditions);
     setStored('zv:market:locations', selectedLocations);
     setStored('zv:market:sort', sortBy);
-  }, [searchQuery, selectedConditions, selectedLocations, sortBy]);
+    setStored('zv:market:recent:visible', showRecentSearches);
+    setStored('zv:market:saved:visible', showSavedSearches);
+  }, [searchQuery, selectedConditions, selectedLocations, sortBy, showRecentSearches, showSavedSearches]);
 
   useEffect(() => {
     if (isServiceOrHostelCategory && selectedConditions.length > 0) {
@@ -164,6 +189,20 @@ const Marketplace = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMyListings = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      setMyListingsLoading(true);
+      const response = await marketplaceApi.getMyListings({ limit: 50 });
+      setMyListings(response.listings);
+    } catch (err) {
+      console.error('Failed to fetch my listings:', err);
+    } finally {
+      setMyListingsLoading(false);
     }
   };
 
@@ -369,9 +408,96 @@ const Marketplace = () => {
     setMessageDialogOpen(true);
   };
 
+  const ensureSellerAccess = () => {
+    if (isAuthenticated) return true;
+
+    toast({
+      title: 'Login required',
+      description: 'Sign in first so you can post and manage your marketplace listings.',
+      variant: 'destructive',
+    });
+    navigate('/login', { state: { from: location } });
+    return false;
+  };
+
+  const handleOpenCreateListing = () => {
+    if (!ensureSellerAccess()) return;
+    setEditingListing(null);
+    setSellerSheetOpen(true);
+  };
+
+  const handleOpenMyListings = () => {
+    if (!ensureSellerAccess()) return;
+    setMyListingsSheetOpen(true);
+  };
+
+  const handleSellerSubmit = async (data: CreateMarketplaceListingData) => {
+    try {
+      setSellerSubmitting(true);
+
+      if (editingListing?.id) {
+        await marketplaceApi.updateListing(editingListing.id, data);
+        toast({
+          title: 'Listing updated',
+          description: 'Your marketplace listing has been updated.',
+        });
+      } else {
+        await marketplaceApi.createListing(data);
+        toast({
+          title: 'Listing published',
+          description: 'Your product or service is now live in the marketplace.',
+        });
+      }
+
+      setSellerSheetOpen(false);
+      setEditingListing(null);
+      await Promise.all([fetchListings(), fetchMyListings()]);
+    } catch (err) {
+      toast({
+        title: 'Could not save listing',
+        description: handleApiError(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setSellerSubmitting(false);
+    }
+  };
+
+  const handleEditListing = (listing: MarketplaceListing) => {
+    setEditingListing(listing);
+    setMyListingsSheetOpen(false);
+    setSellerSheetOpen(true);
+  };
+
+  const handleDeleteListing = async (listing: MarketplaceListing) => {
+    const confirmed = window.confirm(`Delete "${listing.title}" from the marketplace?`);
+    if (!confirmed) return;
+
+    try {
+      await marketplaceApi.deleteListing(listing.id);
+      toast({
+        title: 'Listing deleted',
+        description: 'The listing has been removed from the marketplace.',
+      });
+      await Promise.all([fetchListings(), fetchMyListings()]);
+    } catch (err) {
+      toast({
+        title: 'Could not delete listing',
+        description: handleApiError(err),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const activeConditionCount = isServiceOrHostelCategory ? 0 : selectedConditions.length;
   const activeFiltersCount = activeConditionCount + selectedLocations.length +
     (priceRange[0] > 0 || priceRange[1] < maxPrice ? 1 : 0);
+  const myListingStats = {
+    total: myListings.length,
+    active: myListings.filter((listing) => String(listing.status).toLowerCase() === 'active').length,
+    sold: myListings.filter((listing) => String(listing.status).toLowerCase() === 'sold').length,
+    views: myListings.reduce((total, listing) => total + Number(listing.views_count || 0), 0),
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -385,34 +511,60 @@ const Marketplace = () => {
           description="Buy, sell, and trade with fellow Zetech students. Find great deals on electronics, books, fashion, services, and accommodation."
         />
 
-        {(recentSearches.length > 0 || savedSearches.length > 0) && (
+        {((showRecentSearches && recentSearches.length > 0) || (showSavedSearches && savedSearches.length > 0)) && (
           <div className="grid gap-3 md:grid-cols-2 mb-6">
-            <div className="rounded-xl border border-border p-3">
-              <p className="text-sm font-medium inline-flex items-center gap-2 mb-2">
-                <History className="h-4 w-4 text-primary" />
-                Recent
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {recentSearches.map((term) => (
-                  <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
-                    {term}
+            {showRecentSearches && recentSearches.length > 0 && (
+              <div className="rounded-xl border border-border p-3">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium inline-flex items-center gap-2">
+                    <History className="h-4 w-4 text-primary" />
+                    Recent
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setShowRecentSearches(false)}
+                    aria-label="Close recent searches"
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
-                ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentSearches.map((term) => (
+                    <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
+                      {term}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="rounded-xl border border-border p-3">
-              <p className="text-sm font-medium inline-flex items-center gap-2 mb-2">
-                <Bookmark className="h-4 w-4 text-primary" />
-                Saved
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {savedSearches.map((term) => (
-                  <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
-                    {term}
+            )}
+            {showSavedSearches && savedSearches.length > 0 && (
+              <div className="rounded-xl border border-border p-3">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium inline-flex items-center gap-2">
+                    <Bookmark className="h-4 w-4 text-primary" />
+                    Saved
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setShowSavedSearches(false)}
+                    aria-label="Close saved searches"
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
-                ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {savedSearches.map((term) => (
+                    <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
+                      {term}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -428,6 +580,20 @@ const Marketplace = () => {
               onChange={(e) => handleSearchInput(e.target.value)}
               aria-label="Search marketplace listings"
             />
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={handleOpenCreateListing} className="gap-2">
+              <PlusCircle className="h-4 w-4" />
+              {isAuthenticated ? 'Post a listing' : 'Login to sell'}
+            </Button>
+            {isAuthenticated && (
+              <Button variant="outline" onClick={handleOpenMyListings} className="gap-2">
+                <Store className="h-4 w-4" />
+                My listings
+                <Badge variant="secondary" className="ml-1">{myListingStats.total}</Badge>
+              </Button>
+            )}
           </div>
 
           {/* Desktop Filters */}
@@ -978,6 +1144,112 @@ const Marketplace = () => {
           </div>
         )}
       </main>
+      <Sheet open={sellerSheetOpen} onOpenChange={(open) => {
+        setSellerSheetOpen(open);
+        if (!open) {
+          setEditingListing(null);
+        }
+      }}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+          <SheetHeader>
+            <SheetTitle>{editingListing ? 'Edit listing' : 'Post a marketplace listing'}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <MarketplaceSellerForm
+              initialData={editingListing}
+              onSubmit={handleSellerSubmit}
+              onCancel={() => {
+                setSellerSheetOpen(false);
+                setEditingListing(null);
+              }}
+              isSubmitting={sellerSubmitting}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+      <Sheet open={myListingsSheetOpen} onOpenChange={setMyListingsSheetOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>My marketplace listings</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            {myListingsLoading ? (
+              <div className="flex items-center justify-center py-16 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading your listings...
+              </div>
+            ) : myListings.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-border p-6 text-center">
+                <Store className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="text-lg font-medium">No listings yet</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Publish your first product or service and it will appear here for easy management.
+                </p>
+                <Button className="mt-4" onClick={() => {
+                  setMyListingsSheetOpen(false);
+                  handleOpenCreateListing();
+                }}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create listing
+                </Button>
+              </div>
+            ) : (
+              myListings.map((listing) => {
+                const listingKind = getEffectiveListingKind(listing);
+                return (
+                  <div key={listing.id} className="rounded-3xl border border-border/70 bg-card p-4 shadow-sm">
+                    <div className="flex gap-4">
+                      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-muted">
+                        {listing.image_urls?.[0] ? (
+                          <img
+                            src={normalizeImageUrl(listing.image_urls[0])}
+                            alt={listing.title}
+                            className="h-full w-full object-cover"
+                            onError={applyImageFallback}
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <Grid3X3 className="h-6 w-6 text-muted-foreground/50" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-semibold">{listing.title}</p>
+                          <Badge variant="outline" className="capitalize">{listingKind}</Badge>
+                          <Badge variant={String(listing.status).toLowerCase() === 'sold' ? 'destructive' : 'secondary'} className="capitalize">
+                            {listing.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-sm font-medium text-primary">KES {Number(listing.price || 0).toLocaleString()}</p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span>{Number(listing.views_count || 0)} views</span>
+                          <span>{listing.location || 'Location not set'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/marketplace/${listing.id}`)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleEditListing(listing)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteListing(listing)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
       {selectedMessageListing && (
         <MessageDialog
           open={messageDialogOpen}

@@ -12,7 +12,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import PageHeader from '@/components/ui/page-header';
 import { 
   Search, 
-  Filter, 
   MapPin, 
   Clock, 
   Building2,
@@ -23,11 +22,13 @@ import {
   ExternalLink,
   AlertCircle,
   Bookmark,
-  History
+  History,
+  X
 } from 'lucide-react';
 
 import { opportunitiesApi, type Opportunity } from '@/api/opportunities.api';
 import SocialShare from '@/components/SocialShare';
+import { useToast } from '@/hooks/use-toast';
 import { getStored, setStored, upsertRecent } from '@/lib/storage';
 import { trackEvent } from '@/lib/analytics';
 
@@ -40,6 +41,7 @@ const categories = [
 ];
 
 const Opportunities = () => {
+  const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState(getStored<string>('zv:opps:category', 'all'));
   const [searchQuery, setSearchQuery] = useState(getStored<string>('zv:opps:search', ''));
   const [sortBy, setSortBy] = useState<'newest' | 'deadline' | 'views'>(
@@ -47,6 +49,8 @@ const Opportunities = () => {
   );
   const [savedSearches, setSavedSearches] = useState<string[]>(() => getStored<string[]>('zv:opps:saved', []));
   const [recentSearches, setRecentSearches] = useState<string[]>(() => getStored<string[]>('zv:opps:recent', []));
+  const [showRecentSearches, setShowRecentSearches] = useState<boolean>(() => getStored<boolean>('zv:opps:recent:visible', true));
+  const [showSavedSearches, setShowSavedSearches] = useState<boolean>(() => getStored<boolean>('zv:opps:saved:visible', true));
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +99,9 @@ const Opportunities = () => {
     setStored('zv:opps:category', activeCategory);
     setStored('zv:opps:search', searchQuery);
     setStored('zv:opps:sort', sortBy);
-  }, [activeCategory, searchQuery, sortBy]);
+    setStored('zv:opps:recent:visible', showRecentSearches);
+    setStored('zv:opps:saved:visible', showSavedSearches);
+  }, [activeCategory, searchQuery, sortBy, showRecentSearches, showSavedSearches]);
 
   // Handle search change
   const handleSearchChange = (value: string) => {
@@ -194,34 +200,60 @@ const Opportunities = () => {
           </Button>
         </div>
 
-        {(recentSearches.length > 0 || savedSearches.length > 0) && (
+        {((showRecentSearches && recentSearches.length > 0) || (showSavedSearches && savedSearches.length > 0)) && (
           <div className="grid gap-3 md:grid-cols-2 mb-6">
-            <div className="rounded-xl border border-border p-3">
-              <p className="text-sm font-medium inline-flex items-center gap-2 mb-2">
-                <History className="h-4 w-4 text-primary" />
-                Recent
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {recentSearches.map((term) => (
-                  <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
-                    {term}
+            {showRecentSearches && recentSearches.length > 0 && (
+              <div className="rounded-xl border border-border p-3">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium inline-flex items-center gap-2">
+                    <History className="h-4 w-4 text-primary" />
+                    Recent
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setShowRecentSearches(false)}
+                    aria-label="Close recent searches"
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
-                ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentSearches.map((term) => (
+                    <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
+                      {term}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="rounded-xl border border-border p-3">
-              <p className="text-sm font-medium inline-flex items-center gap-2 mb-2">
-                <Bookmark className="h-4 w-4 text-primary" />
-                Saved
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {savedSearches.map((term) => (
-                  <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
-                    {term}
+            )}
+            {showSavedSearches && savedSearches.length > 0 && (
+              <div className="rounded-xl border border-border p-3">
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium inline-flex items-center gap-2">
+                    <Bookmark className="h-4 w-4 text-primary" />
+                    Saved
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setShowSavedSearches(false)}
+                    aria-label="Close saved searches"
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
-                ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {savedSearches.map((term) => (
+                    <Button key={term} variant="secondary" size="sm" onClick={() => setSearchQuery(term)}>
+                      {term}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

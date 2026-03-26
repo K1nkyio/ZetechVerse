@@ -22,7 +22,7 @@ const Login = () => {
   const { oauthLoading, oauthError, handleOAuthLogin } = useOAuth();
   const { forgotPassword, passwordLoading, passwordSuccess, passwordError } = usePassword();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,7 +41,7 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError(t('auth.login.fillAllFields'));
       return;
     }
@@ -51,7 +51,7 @@ const Login = () => {
       setError(null);
 
       await login({
-        email,
+        identifier,
         password,
         remember_me: rememberMe,
       });
@@ -202,16 +202,16 @@ const Login = () => {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium">
-                      <Mail className="h-4 w-4 inline mr-2" />
-                      {t('auth.emailAddress')}
+                    <Label htmlFor="identifier" className="text-sm font-medium">
+                      <User className="h-4 w-4 inline mr-2" />
+                      Email or Username
                     </Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      id="identifier"
+                      type="text"
+                      placeholder="your@email.com or username"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
                       disabled={loading}
                       className="h-10 px-3 text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/30"
                       required

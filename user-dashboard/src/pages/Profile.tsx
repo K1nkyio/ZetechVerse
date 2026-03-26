@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { profileApi, UserProfile } from '@/api/profile.api';
 import { careerApi, type CareerProfile, type SavedOpportunity, type ApplicationTrackerItem, type CareerRecommendation } from '@/api/career.api';
 import { UpdateProfileData } from '@/api/auth.api';
+import { marketplaceApi, type MarketplaceListing } from '@/api/marketplace.api';
 import { uploadsApi } from '@/api/uploads.api';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthContext } from '@/contexts/auth-context';
@@ -28,7 +29,8 @@ import {
   Sparkles,
   Bookmark,
   BriefcaseBusiness,
-  Camera
+  Camera,
+  Store
 } from 'lucide-react';
 
 const Profile = () => {
@@ -56,6 +58,7 @@ const Profile = () => {
   const [savedOpportunities, setSavedOpportunities] = useState<SavedOpportunity[]>([]);
   const [applications, setApplications] = useState<ApplicationTrackerItem[]>([]);
   const [recommendations, setRecommendations] = useState<CareerRecommendation[]>([]);
+  const [marketplaceListings, setMarketplaceListings] = useState<MarketplaceListing[]>([]);
   const [formData, setFormData] = useState<UpdateProfileData>({
     full_name: "",
     bio: "",
@@ -68,6 +71,7 @@ const Profile = () => {
   useEffect(() => {
     fetchProfile();
     fetchCareerCenter();
+    fetchMarketplaceActivity();
   }, []);
 
   const profileDraft = useMemo(() => {
@@ -139,6 +143,15 @@ const Profile = () => {
       });
     } finally {
       setCareerLoading(false);
+    }
+  };
+
+  const fetchMarketplaceActivity = async () => {
+    try {
+      const response = await marketplaceApi.getMyListings({ limit: 100 });
+      setMarketplaceListings(response.listings);
+    } catch (error) {
+      console.error('Failed to load marketplace activity:', error);
     }
   };
 
@@ -340,6 +353,12 @@ const Profile = () => {
   }
 
   const isAccountActive = profile.is_active !== false;
+  const marketplaceStats = {
+    total: marketplaceListings.length,
+    active: marketplaceListings.filter((listing) => String(listing.status).toLowerCase() === 'active').length,
+    sold: marketplaceListings.filter((listing) => String(listing.status).toLowerCase() === 'sold').length,
+    views: marketplaceListings.reduce((total, listing) => total + Number(listing.views_count || 0), 0),
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -722,6 +741,35 @@ const Profile = () => {
                       Your personal profile and career essentials are fully set up.
                     </p>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Store className="h-5 w-5" />
+                    Marketplace Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-border/70 p-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Listings</p>
+                      <p className="mt-2 text-2xl font-semibold">{marketplaceStats.total}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/70 p-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Active</p>
+                      <p className="mt-2 text-2xl font-semibold">{marketplaceStats.active}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/70 p-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Sold</p>
+                      <p className="mt-2 text-2xl font-semibold">{marketplaceStats.sold}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/70 p-3">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Views</p>
+                      <p className="mt-2 text-2xl font-semibold">{marketplaceStats.views}</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
