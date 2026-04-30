@@ -58,7 +58,14 @@ const logUserAccountAudit = async ({ actorId = null, targetUserId = null, action
   );
 };
 
-const FRONTEND_URL = String(process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+const getPrimaryClientOrigin = () => {
+  const configuredOrigin = String(process.env.FRONTEND_URL || process.env.CLIENT_ORIGIN || '')
+    .split(',')[0]
+    .trim();
+  return (configuredOrigin || 'http://localhost:5173').replace(/\/+$/, '');
+};
+
+const FRONTEND_URL = getPrimaryClientOrigin();
 const PASSWORD_RESET_SECRET = process.env.PASSWORD_RESET_SECRET || process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 

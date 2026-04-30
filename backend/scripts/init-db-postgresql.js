@@ -2,45 +2,13 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const { getPoolConfig, isSupabaseConnection } = require('../src/config/db-pool-config');
 
 const schemaPath = path.join(__dirname, '../database/schema_postgresql.sql');
 const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
 const forceReset = process.argv.includes('--force');
 
 console.log('Initializing ZetechVerse PostgreSQL database...');
-
-const getPoolConfig = () => {
-  const connectionString = (process.env.DATABASE_URL || '').trim();
-  const useSsl = String(process.env.DB_SSL || '').toLowerCase() === 'true';
-
-  if (connectionString) {
-    return {
-      connectionString,
-      ...(useSsl
-        ? {
-            ssl: {
-              rejectUnauthorized: false,
-            },
-          }
-        : {}),
-    };
-  }
-
-  return {
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'zetechverse',
-    password: process.env.DB_PASSWORD || 'password',
-    port: process.env.DB_PORT || 5432,
-    ...(useSsl
-      ? {
-          ssl: {
-            rejectUnauthorized: false,
-          },
-        }
-      : {}),
-  };
-};
 
 // PostgreSQL connection configuration
 const pool = new Pool(getPoolConfig());
@@ -63,6 +31,10 @@ async function initializeDatabase() {
     `);
 
     const schemaExists = Boolean(rows?.[0]?.schema_exists);
+
+    if (forceReset && isSupabaseConnection() && process.env.ALLOW_DATABASE_FORCE_RESET !== 'true') {
+      throw new Error('Refusing to force reset a Supabase database. Set ALLOW_DATABASE_FORCE_RESET=true only if you intentionally want to drop and recreate the public schema.');
+    }
 
     if (schemaExists && !forceReset) {
       console.log('Database schema already exists. Skipping initialization.');

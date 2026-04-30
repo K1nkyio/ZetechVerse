@@ -2,7 +2,7 @@
 
 
 
-A comprehensive REST API for the ZetechVerse university community platform, built with Node.js, Express, and SQLite.
+A comprehensive REST API for the ZetechVerse university community platform, built with Node.js, Express, and PostgreSQL.
 
 
 
@@ -36,7 +36,7 @@ A comprehensive REST API for the ZetechVerse university community platform, buil
 
 - **Framework**: Express.js
 
-- **Database**: SQLite3
+- **Database**: PostgreSQL locally and Supabase Postgres in production
 
 - **Authentication**: JWT (jsonwebtoken)
 
@@ -55,6 +55,7 @@ A comprehensive REST API for the ZetechVerse university community platform, buil
 
 
 - Node.js (v16 or higher)
+- PostgreSQL for local development
 
 - npm or yarn
 
@@ -235,7 +236,13 @@ FRONTEND_URL=http://localhost:5173
 
 # Database Configuration
 
-DATABASE_PATH=./database/zetechverse.db
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=zetechverse
+DB_USER=postgres
+DB_PASSWORD=your-local-postgres-password
+DB_SSL=false
+DB_POOL_MAX=20
 
 
 
@@ -275,6 +282,24 @@ API_RATE_LIMIT_MAX_REQUESTS=50
 ```
 
 
+
+For production on Render with Supabase, set these in the Render backend service environment:
+
+```env
+NODE_ENV=production
+PGHOST=aws-1-eu-central-1.pooler.supabase.com
+PGPORT=5432
+PGDATABASE=postgres
+PGUSER=postgres.hlgawzpmlqvbnfbjsvms
+PGPASSWORD=your_actual_supabase_password
+DB_SSL_REJECT_UNAUTHORIZED=false
+JWT_SECRET=your_long_production_secret
+CLIENT_ORIGIN=https://your-vercel-app.vercel.app
+```
+
+Do not set Supabase `PG*` values or `DATABASE_URL` in your local laptop `.env` unless you intentionally want your local backend to connect to Supabase. Local development will use `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`.
+
+See `SUPABASE_DEPLOYMENT.md` for the full Vercel + Render + Supabase setup checklist.
 
 ## API Response Format
 
@@ -324,7 +349,7 @@ All API responses follow this format:
 
 
 
-The database schema is defined in `database/schema.sql` and includes:
+The PostgreSQL database schema is defined in `database/schema_postgresql.sql` and includes:
 
 
 
@@ -388,11 +413,11 @@ backend/
 
 ├── database/
 
-│   └── schema.sql            # Database schema
+│   └── schema_postgresql.sql # PostgreSQL database schema
 
 ├── scripts/
 
-│   └── init-db.js            # Database initialization
+│   └── init-db-postgresql.js # Database initialization
 
 ├── package.json
 

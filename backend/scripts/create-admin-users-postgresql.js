@@ -1,6 +1,7 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const { getPoolConfig } = require('../src/config/db-pool-config');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -51,28 +52,6 @@ const prepareUser = async ({
     passwordHash,
     fullName,
     role
-  };
-};
-
-const getPoolConfig = () => {
-  const connectionString = (process.env.DATABASE_URL || '').trim();
-  const useSsl = String(process.env.DB_SSL || '').toLowerCase() === 'true';
-  if (connectionString) {
-    return {
-      connectionString,
-      ssl: {
-        rejectUnauthorized: false,
-      },
-    };
-  }
-
-  return {
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'zetechverse',
-    password: process.env.DB_PASSWORD || 'password',
-    port: process.env.DB_PORT || 5432,
-    ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
   };
 };
 
@@ -215,4 +194,3 @@ async function createAdminUsers() {
 }
 
 createAdminUsers();
-

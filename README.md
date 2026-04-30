@@ -30,11 +30,11 @@ A comprehensive platform connecting Zetech University students with opportunitie
 
 
 
-- **Backend**: Node.js + Express + SQLite
+- **Backend**: Node.js + Express + PostgreSQL
 
 - **Frontend**: React + TypeScript + Vite
 
-- **Database**: SQLite with proper relationships and constraints
+- **Database**: Local PostgreSQL for development, Supabase Postgres for production
 
 - **Authentication**: JWT with secure password hashing
 
@@ -49,6 +49,7 @@ A comprehensive platform connecting Zetech University students with opportunitie
 - **npm** or **yarn**
 
 - **Git**
+- **PostgreSQL** for local backend development
 
 
 
@@ -124,7 +125,13 @@ PORT=3000
 
 FRONTEND_URL=http://localhost:5173
 
-DATABASE_PATH=./database/zetechverse.db
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=zetechverse
+DB_USER=postgres
+DB_PASSWORD=your-local-postgres-password
+DB_SSL=false
+DB_POOL_MAX=20
 
 JWT_SECRET=your-super-secret-jwt-key
 
@@ -147,6 +154,25 @@ SMTP_FROM=ZetechVerse <no-reply@your-domain.com>
 SMTP_REPLY_TO=support@your-domain.com
 
 ```
+
+
+For the Render backend in production, use Supabase by setting:
+
+```env
+NODE_ENV=production
+PGHOST=aws-1-eu-central-1.pooler.supabase.com
+PGPORT=5432
+PGDATABASE=postgres
+PGUSER=postgres.hlgawzpmlqvbnfbjsvms
+PGPASSWORD=your_actual_supabase_password
+DB_SSL_REJECT_UNAUTHORIZED=false
+JWT_SECRET=your_long_production_secret
+CLIENT_ORIGIN=https://your-vercel-app.vercel.app
+```
+
+Keep Supabase `PG*` values and `DATABASE_URL` out of your laptop `.env` so local runs continue using your local PostgreSQL server.
+
+See `backend/SUPABASE_DEPLOYMENT.md` for the full Vercel + Render + Supabase setup checklist.
 
 
 
@@ -279,7 +305,7 @@ If you have an existing database, run `npm run migrate-admin-approval` in `backe
 
 
 
-The SQLite database includes tables for:
+The PostgreSQL database includes tables for:
 
 - Users, Categories, Opportunities
 
@@ -291,7 +317,7 @@ The SQLite database includes tables for:
 
 
 
-See `backend/database/schema.sql` for complete schema details.
+See `backend/database/schema_postgresql.sql` for complete schema details.
 
 
 
@@ -321,7 +347,7 @@ See `backend/database/schema.sql` for complete schema details.
 
 ```bash
 
-curl http://localhost:3000/health
+curl http://localhost:3000/api/health
 
 ```
 
@@ -425,7 +451,7 @@ curl http://localhost:3000/api/opportunities
 
 │   ├── database/
 
-│   │   └── schema.sql        # Database schema
+│   │   └── schema_postgresql.sql # PostgreSQL database schema
 
 │   └── package.json
 
@@ -457,7 +483,7 @@ curl http://localhost:3000/api/opportunities
 
 2. **Frontend**: Create API functions and update components
 
-3. **Database**: Update schema.sql for new tables/columns
+3. **Database**: Update `backend/database/schema_postgresql.sql` for new tables/columns
 
 
 
@@ -543,7 +569,7 @@ For questions or issues:
 
 - Check file permissions for database directory
 
-- Verify SQLite installation
+- Verify PostgreSQL is running and the database exists
 
 
 

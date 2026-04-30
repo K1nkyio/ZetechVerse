@@ -60,7 +60,12 @@ const envAllowedOrigins = (process.env.CORS_ORIGINS || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
+const clientOrigins = (process.env.CLIENT_ORIGIN || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins, ...clientOrigins])];
 
 app.use(
   cors({
@@ -108,14 +113,21 @@ app.use(express.urlencoded({ extended: true, limit: requestBodyLimit }));
 // ---------- STATIC FILES ----------
 app.use('/uploads', express.static(uploadsRoot));
 
+const getHealthPayload = () => ({
+  ok: true,
+  success: true,
+  message: 'ZetechVerse API is running',
+  timestamp: new Date().toISOString(),
+  environment: process.env.NODE_ENV || 'development',
+});
+
 // ---------- HEALTH CHECK ----------
 app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'ZetechVerse API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
+  res.json(getHealthPayload());
+});
+
+app.get('/api/health', (req, res) => {
+  res.json(getHealthPayload());
 });
 
 // ---------- API ROUTES ----------
@@ -180,7 +192,7 @@ app.use((error, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 ZetechVerse API server is running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
 });
 
 // ---------- GRACEFUL SHUTDOWN ----------
