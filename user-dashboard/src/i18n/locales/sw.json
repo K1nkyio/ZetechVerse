@@ -95,6 +95,8 @@
       "goBack": "Rudi Nyuma",
       "title": "Fungua Akaunti",
       "description": "Jiunge na ZetechVerse kuanza kununua, kuuza, na kuungana",
+      "emailDomainHint": "Tumia barua pepe ya Zetech: @zetech.ac.ke au @student.zetech.ac.ke",
+      "emailDomainRule": "Kufungua akaunti kunahitaji barua pepe ya @zetech.ac.ke au @student.zetech.ac.ke",
       "fullName": "Jina Kamili",
       "optional": "Hiari",
       "username": "Jina la Mtumiaji",

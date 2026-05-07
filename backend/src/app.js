@@ -20,6 +20,7 @@ const uploadsRoutes = require('./routes/uploads.routes');
 const paymentsRoutes = require('./routes/payments.routes');
 const careerRoutes = require('./routes/career.routes');
 const { getUploadsRoot } = require('./config/uploads');
+const { ensureAuthSecuritySchema } = require('./utils/authSecurity');
 
 // Import database connection
 const { db } = require('./config/db');
@@ -27,6 +28,10 @@ const { db } = require('./config/db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const uploadsRoot = getUploadsRoot();
+
+ensureAuthSecuritySchema().catch((error) => {
+  console.error('Failed to initialize auth security schema:', error);
+});
 
 const parseEnvInt = (value, fallback) => {
   const parsed = Number.parseInt(String(value ?? ''), 10);

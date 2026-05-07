@@ -16,6 +16,7 @@ const {
 
 const { authenticateToken } = require('../middleware/auth.middleware');
 const { requireUserOrAdmin } = require('../middleware/role.middleware');
+const { contentWriteLimiter } = require('../middleware/rateLimit.middleware');
 
 // Validation rules
 const opportunityValidation = [
@@ -163,7 +164,7 @@ router.get('/user/my-opportunities', authenticateToken, requireUserOrAdmin, getM
 router.get('/:id', getOpportunity); // Get single opportunity
 
 // Admin/Super admin routes
-router.post('/', authenticateToken, requireUserOrAdmin, opportunityValidation, createOpportunity); // Create opportunity
+router.post('/', authenticateToken, requireUserOrAdmin, contentWriteLimiter, opportunityValidation, createOpportunity); // Create opportunity
 router.put('/:id', authenticateToken, requireUserOrAdmin, opportunityValidation, updateOpportunity); // Update opportunity
 router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteOpportunity); // Delete opportunity
 

@@ -95,6 +95,8 @@
       "goBack": "Go Back",
       "title": "Create Account",
       "description": "Join ZetechVerse to start buying, selling, and connecting",
+      "emailDomainHint": "Use your Zetech email: @zetech.ac.ke or @student.zetech.ac.ke",
+      "emailDomainRule": "Account creation requires a @zetech.ac.ke or @student.zetech.ac.ke email address",
       "fullName": "Full Name",
       "optional": "Optional",
       "username": "Username",

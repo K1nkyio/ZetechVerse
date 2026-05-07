@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Search, ShieldCheck, ShieldOff, ShieldPlus, UserCheck, Users } from "lucide-react";
+import { Search, ShieldCheck, ShieldOff, ShieldPlus, UserCheck, Users } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Column, DataTable } from "@/components/admin/DataTable";
 import { StatusBadge } from "@/components/admin/StatusBadge";
@@ -53,8 +53,8 @@ export default function SuperAdminUsers() {
   const [workflowDialog, setWorkflowDialog] = useState<WorkflowDialogState | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [showCreatePassword, setShowCreatePassword] = useState(false);
-  const [createForm, setCreateForm] = useState({ email: "", username: "", full_name: "", password: "" });
+  const [createForm, setCreateForm] = useState({ email: "", role: "admin" });
+  const [lastInviteLink, setLastInviteLink] = useState("");
   const [pendingSearch, setPendingSearch] = useState("");
   const [adminSearch, setAdminSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
@@ -148,11 +148,20 @@ export default function SuperAdminUsers() {
 
   const createAdmin = async () => {
     try {
-      await apiClient.post("/auth/admin/create", createForm);
-      toast({ title: "Admin created", description: "The admin account was created and approved." });
-      setCreateDialogOpen(false); setCreateForm({ email: "", username: "", full_name: "", password: "" }); await loadData();
+      const response = await apiClient.post<{ invite_link?: string }>("/auth/admin/invites", createForm);
+      const inviteLink = response.data.data?.invite_link || "";
+      setLastInviteLink(inviteLink);
+      toast({
+        title: "Admin invited",
+        description: inviteLink ? "Invitation created. Copy the development link from the dialog." : "The invitation email was sent."
+      });
+      if (!inviteLink) {
+        setCreateDialogOpen(false);
+        setCreateForm({ email: "", role: "admin" });
+      }
+      await loadData();
     } catch (error: any) {
-      toast({ title: "Creation failed", description: error.message || "Unable to create admin.", variant: "destructive" });
+      toast({ title: "Invitation failed", description: error.message || "Unable to invite admin.", variant: "destructive" });
     }
   };
 
@@ -240,7 +249,7 @@ export default function SuperAdminUsers() {
           </div>
           <Button onClick={() => setCreateDialogOpen(true)} className="bg-primary text-primary-foreground">
             <ShieldPlus className="mr-2 h-4 w-4" />
-            Create Admin
+            Invite Admin
           </Button>
         </div>
 
@@ -327,9 +336,9 @@ export default function SuperAdminUsers() {
 
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogContent className="bg-card">
-            <DialogHeader><DialogTitle className="font-display">Create Admin Account</DialogTitle><DialogDescription>Provision an approved admin account directly from the control center.</DialogDescription></DialogHeader>
-            <div className="space-y-4"><div className="space-y-2"><Label htmlFor="create_email">Email</Label><Input id="create_email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="admin@yourdomain.com" /></div><div className="space-y-2"><Label htmlFor="create_username">Username</Label><Input id="create_username" value={createForm.username} onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })} placeholder="admin_user" /></div><div className="space-y-2"><Label htmlFor="create_full_name">Full Name</Label><Input id="create_full_name" value={createForm.full_name} onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })} placeholder="Jane Doe" /></div><div className="space-y-2"><Label htmlFor="create_password">Password</Label><div className="relative"><Input id="create_password" type={showCreatePassword ? "text" : "password"} value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="At least 12 characters with a symbol" className="pr-10" /><button type="button" onClick={() => setShowCreatePassword((prev) => !prev)} className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground" aria-label={showCreatePassword ? "Hide password" : "Show password"}>{showCreatePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div></div>
-            <DialogFooter><Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button><Button onClick={() => void createAdmin()}>Create Admin</Button></DialogFooter>
+            <DialogHeader><DialogTitle className="font-display">Invite Admin</DialogTitle><DialogDescription>Send a secure invitation so the admin can set their own password.</DialogDescription></DialogHeader>
+            <div className="space-y-4"><div className="space-y-2"><Label htmlFor="create_email">Email</Label><Input id="create_email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="admin@zetech.ac.ke" /></div><div className="space-y-2"><Label htmlFor="create_role">Role</Label><Select value={createForm.role} onValueChange={(role) => setCreateForm({ ...createForm, role })}><SelectTrigger id="create_role"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent></Select></div>{lastInviteLink ? <div className="space-y-2 rounded-xl border border-border bg-background/70 p-3"><Label>Development invite link</Label><p className="break-all text-xs text-muted-foreground">{lastInviteLink}</p><Button type="button" variant="outline" size="sm" onClick={() => navigator.clipboard?.writeText(lastInviteLink)}>Copy Link</Button></div> : null}</div>
+            <DialogFooter><Button variant="outline" onClick={() => { setCreateDialogOpen(false); setLastInviteLink(""); setCreateForm({ email: "", role: "admin" }); }}>Cancel</Button><Button onClick={() => void createAdmin()}>Send Invite</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

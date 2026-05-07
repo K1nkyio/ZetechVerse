@@ -22,6 +22,7 @@ const {
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
 const { requireUserOrAdmin } = require('../middleware/role.middleware');
+const { contentWriteLimiter } = require('../middleware/rateLimit.middleware');
 
 // Validation rules
 const eventValidation = [
@@ -141,7 +142,7 @@ router.post('/:id/photos', authenticateToken, [
 ], uploadEventPhoto);
 
 // Admin routes
-router.post('/', authenticateToken, requireUserOrAdmin, eventValidation, createEvent); // Create event
+router.post('/', authenticateToken, requireUserOrAdmin, contentWriteLimiter, eventValidation, createEvent); // Create event
 router.put('/:id', authenticateToken, requireUserOrAdmin, eventValidation, updateEvent); // Update event
 router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteEvent); // Delete event
 router.get('/:id', optionalAuth, getEvent); // Get single event

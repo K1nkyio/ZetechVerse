@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ThemeToggle from './ThemeToggle';
 import ProfileDropdown from './ProfileDropdown';
 import { NotificationBell } from './notifications/NotificationBell';
 import { CartWishlistControls } from './CartWishlistControls';
@@ -99,14 +98,12 @@ const Header = () => {
           <div className="hidden md:flex items-center gap-2">
             {isAuthenticated ? <NotificationBell /> : null}
             {isAuthenticated ? <CartWishlistControls wishlistFirst /> : null}
-            <ThemeToggle />
             <ProfileDropdown />
           </div>
 
           {/* Mobile Header Controls */}
           <div className="flex md:hidden items-center gap-1">
             {isAuthenticated ? <NotificationBell /> : null}
-            <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"

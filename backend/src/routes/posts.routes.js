@@ -20,6 +20,7 @@ const {
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/role.middleware');
+const { contentWriteLimiter } = require('../middleware/rateLimit.middleware');
 
 // Validation rules
 const postValidation = [
@@ -116,7 +117,7 @@ router.get('/admin/review-queue', authenticateToken, requireAdmin, getReviewQueu
 router.get('/:id', optionalAuth, getPost); // Get single post
 
 // Authenticated mutation routes
-router.post('/', authenticateToken, postValidation, createPost); // Create post
+router.post('/', authenticateToken, contentWriteLimiter, postValidation, createPost); // Create post
 router.put('/:id', authenticateToken, updatePostValidation, updatePost); // Update post
 router.delete('/:id', authenticateToken, deletePost); // Delete post
 router.post('/:id/like', authenticateToken, togglePostLike); // Like/unlike post

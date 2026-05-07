@@ -6,17 +6,35 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 
 const { run, get, all } = require('../config/db');
-const { isEmailConfigured, sendPasswordResetEmail } = require('../utils/email');
+const { isEmailConfigured, sendAdminInviteEmail, sendPasswordResetEmail } = require('../utils/email');
+const {
+  cancelAdminInvite,
+  consumePasswordResetToken,
+  createAdminInviteToken,
+  createAuthSession,
+  createPasswordResetToken,
+  findActiveAdminInvite,
+  listAdminInvites,
+  listAuthSessions,
+  markAdminInviteAccepted,
+  revokeAllAuthSessions,
+  revokeAuthSession,
+  revokePasswordResetTokensForUser
+} = require('../utils/authSecurity');
+const {
+  ZETECH_EMAIL_REQUIREMENT_MESSAGE,
+  isAllowedZetechEmail
+} = require('../utils/zetechEmail');
 
 
 
 // Generate JWT token
 
-const generateToken = (userId) => {
+const generateToken = (userId, sessionId) => {
 
   return jwt.sign(
 
-    { userId },
+    { userId, sessionId },
 
     process.env.JWT_SECRET || 'your-super-secret-jwt-key',
 
@@ -24,6 +42,12 @@ const generateToken = (userId) => {
 
   );
 
+};
+
+const issueAuthToken = async (userId, req) => {
+  const { ip, userAgent } = getRequestMeta(req);
+  const sessionId = await createAuthSession({ userId, ip, userAgent });
+  return generateToken(userId, sessionId);
 };
 
 const getRequestMeta = (req) => {
@@ -66,7 +90,14 @@ const getPrimaryClientOrigin = () => {
 };
 
 const FRONTEND_URL = getPrimaryClientOrigin();
-const PASSWORD_RESET_SECRET = process.env.PASSWORD_RESET_SECRET || process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+const getAdminClientOrigin = () => {
+  const configuredOrigin = String(process.env.ADMIN_FRONTEND_URL || process.env.ADMIN_CLIENT_ORIGIN || process.env.ADMIN_DASHBOARD_URL || '')
+    .split(',')[0]
+    .trim();
+  return (configuredOrigin || FRONTEND_URL || 'http://localhost:8081').replace(/\/+$/, '');
+};
+
+const ADMIN_FRONTEND_URL = getAdminClientOrigin();
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 const OAUTH_CONFIG = {
@@ -127,6 +158,20 @@ const generateUniqueUsername = async (candidate) => {
   }
 
   throw new Error('Unable to generate a unique username for OAuth user');
+};
+
+const resolveInviteUsername = async (email, desiredUsername) => {
+  const existingByEmail = await get('SELECT id, username FROM users WHERE LOWER(email) = LOWER(?)', [email]);
+  const fallbackUsername = normalizeUsername(String(email).split('@')[0], 'admin');
+  const requestedUsername = normalizeUsername(desiredUsername || existingByEmail?.username || fallbackUsername, fallbackUsername);
+
+  if (existingByEmail) {
+    if (existingByEmail.username === requestedUsername) return requestedUsername;
+    const conflict = await get('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id <> ?', [requestedUsername, existingByEmail.id]);
+    return conflict ? existingByEmail.username : requestedUsername;
+  }
+
+  return generateUniqueUsername(requestedUsername);
 };
 
 const parseJsonResponse = async (response) => {
@@ -271,6 +316,12 @@ const findOrCreateOAuthUser = async (provider, profile) => {
     return getAuthSafeUserById(existingUser.id);
   }
 
+  if (!isAllowedZetechEmail(profile.email)) {
+    const error = new Error(ZETECH_EMAIL_REQUIREMENT_MESSAGE);
+    error.statusCode = 403;
+    throw error;
+  }
+
   const username = await generateUniqueUsername(profile.usernameSeed);
   const generatedPassword = crypto.randomBytes(32).toString('hex');
   const passwordHash = await bcrypt.hash(generatedPassword, 12);
@@ -378,7 +429,7 @@ const register = async (req, res) => {
 
     // Generate token
 
-    const token = generateToken(result.id);
+    const token = await issueAuthToken(result.id, req);
 
 
 
@@ -545,6 +596,236 @@ const createAdminAccount = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to create admin account',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const inviteAdminAccount = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const role = req.body.role || 'admin';
+    const { ip, userAgent } = getRequestMeta(req);
+    const emailConfigured = isEmailConfigured();
+
+    if (process.env.NODE_ENV === 'production' && !emailConfigured) {
+      return res.status(503).json({
+        success: false,
+        message: 'Admin invitations are temporarily unavailable. Email delivery is not configured.'
+      });
+    }
+
+    const existingAdmin = await get(
+      `SELECT id, role, admin_status FROM users WHERE LOWER(email) = LOWER(?) AND role IN ('admin', 'super_admin')`,
+      [email]
+    );
+
+    if (existingAdmin && existingAdmin.admin_status !== 'deactivated') {
+      return res.status(409).json({
+        success: false,
+        message: 'An active admin account already exists for this email.'
+      });
+    }
+
+    const { token, inviteId, expiresAt } = await createAdminInviteToken({
+      email,
+      role,
+      invitedBy: req.user.id,
+      ip,
+      userAgent
+    });
+
+    const inviteLink = `${ADMIN_FRONTEND_URL}/admin/invite?token=${encodeURIComponent(token)}`;
+
+    if (emailConfigured) {
+      await sendAdminInviteEmail({
+        to: email,
+        inviteLink,
+        role,
+        invitedBy: req.user.email || req.user.username
+      });
+    }
+
+    await logAdminAudit({
+      userId: req.user.id,
+      entityId: null,
+      action: 'admin_invite_created',
+      description: JSON.stringify({ email, role, invite_id: inviteId }),
+      ip,
+      userAgent
+    });
+
+    const payload = {
+      success: true,
+      message: 'Admin invitation created.'
+    };
+
+    if (process.env.NODE_ENV !== 'production' && !emailConfigured) {
+      payload.data = {
+        invite_link: inviteLink,
+        expires_at: expiresAt
+      };
+    }
+
+    res.status(201).json(payload);
+  } catch (error) {
+    console.error('Error inviting admin account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to invite admin account',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const acceptAdminInvite = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { token, username, password, full_name } = req.body;
+    const { ip, userAgent } = getRequestMeta(req);
+    const invite = await findActiveAdminInvite(token);
+
+    if (!invite) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired admin invitation'
+      });
+    }
+
+    const resolvedUsername = await resolveInviteUsername(invite.email, username);
+    const passwordHash = await bcrypt.hash(password, 12);
+    const existingUser = await get('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', [invite.email]);
+    let userId;
+
+    if (existingUser) {
+      userId = existingUser.id;
+      await run(
+        `
+          UPDATE users
+          SET username = ?,
+              password_hash = ?,
+              full_name = COALESCE(?, full_name),
+              role = ?,
+              is_active = true,
+              email_verified = true,
+              admin_status = 'approved',
+              admin_requested_at = COALESCE(admin_requested_at, CURRENT_TIMESTAMP),
+              admin_approved_at = CURRENT_TIMESTAMP,
+              admin_approved_by = ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `,
+        [resolvedUsername, passwordHash, full_name || null, invite.role, invite.invited_by, userId]
+      );
+    } else {
+      const result = await run(
+        `
+          INSERT INTO users (
+            email, username, password_hash, full_name, role, is_active, email_verified,
+            admin_status, admin_requested_at, admin_approved_at, admin_approved_by
+          ) VALUES (?, ?, ?, ?, ?, true, true, 'approved', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+        `,
+        [invite.email, resolvedUsername, passwordHash, full_name || resolvedUsername, invite.role, invite.invited_by]
+      );
+      userId = result.id;
+    }
+
+    await markAdminInviteAccepted({ inviteId: invite.id, userId });
+    await logAdminAudit({
+      userId,
+      entityId: userId,
+      action: 'admin_invite_accepted',
+      description: JSON.stringify({ invited_by: invite.invited_by, role: invite.role }),
+      ip,
+      userAgent
+    });
+
+    const user = await getAuthSafeUserById(userId);
+    const authToken = await issueAuthToken(userId, req);
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin invitation accepted.',
+      data: {
+        user,
+        token: authToken
+      }
+    });
+  } catch (error) {
+    console.error('Error accepting admin invite:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to accept admin invitation',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const listAdminInviteAccounts = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit || '100'), 10) || 100, 1), 500);
+    const invites = await listAdminInvites({ limit });
+    res.json({
+      success: true,
+      data: invites
+    });
+  } catch (error) {
+    console.error('Error fetching admin invites:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch admin invites',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const cancelAdminInviteAccount = async (req, res) => {
+  try {
+    const inviteId = Number.parseInt(String(req.params.id || ''), 10);
+    const { ip, userAgent } = getRequestMeta(req);
+    if (!Number.isFinite(inviteId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid invite id'
+      });
+    }
+
+    const result = await cancelAdminInvite({ inviteId });
+    await logAdminAudit({
+      userId: req.user.id,
+      entityId: null,
+      action: 'admin_invite_cancelled',
+      description: JSON.stringify({ invite_id: inviteId }),
+      ip,
+      userAgent
+    });
+
+    res.json({
+      success: true,
+      message: result.changes ? 'Admin invitation cancelled.' : 'Admin invitation was already closed.'
+    });
+  } catch (error) {
+    console.error('Error cancelling admin invite:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel admin invite',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -1006,6 +1287,7 @@ const forgotPassword = async (req, res) => {
 
     const email = String(req.body.email || '').trim().toLowerCase();
     const emailConfigured = isEmailConfigured();
+    const { ip, userAgent } = getRequestMeta(req);
 
     if (process.env.NODE_ENV === 'production' && !emailConfigured) {
       return res.status(503).json({
@@ -1019,11 +1301,7 @@ const forgotPassword = async (req, res) => {
     let resetToken = null;
     let resetLink = null;
     if (user?.id && user.is_active) {
-      resetToken = jwt.sign(
-        { userId: user.id, purpose: 'password_reset' },
-        PASSWORD_RESET_SECRET,
-        { expiresIn: '15m' }
-      );
+      resetToken = await createPasswordResetToken({ userId: user.id, ip, userAgent });
       resetLink = `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(resetToken)}`;
 
       if (emailConfigured) {
@@ -1031,8 +1309,6 @@ const forgotPassword = async (req, res) => {
           to: user.email || email,
           resetLink
         });
-      } else if (process.env.NODE_ENV !== 'production') {
-        console.warn(`[Auth] SMTP not configured. Password reset link for ${email}: ${resetLink}`);
       }
     }
 
@@ -1071,24 +1347,15 @@ const resetPassword = async (req, res) => {
     }
 
     const { token, password } = req.body;
-    let payload;
-    try {
-      payload = jwt.verify(token, PASSWORD_RESET_SECRET);
-    } catch (error) {
+    const resetToken = await consumePasswordResetToken(token);
+    if (!resetToken) {
       return res.status(400).json({
         success: false,
         message: 'Invalid or expired password reset token'
       });
     }
 
-    if (!payload?.userId || payload.purpose !== 'password_reset') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid password reset token payload'
-      });
-    }
-
-    const user = await get('SELECT id FROM users WHERE id = ?', [payload.userId]);
+    const user = await get('SELECT id FROM users WHERE id = ?', [resetToken.user_id]);
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -1104,8 +1371,10 @@ const resetPassword = async (req, res) => {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `,
-      [passwordHash, payload.userId]
+      [passwordHash, resetToken.user_id]
     );
+    await revokePasswordResetTokensForUser(resetToken.user_id);
+    await revokeAllAuthSessions({ userId: resetToken.user_id, reason: 'password_reset' });
 
     res.json({
       success: true,
@@ -1260,7 +1529,7 @@ const oauthCallback = async (req, res) => {
     await run('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
     user = await getAuthSafeUserById(user.id);
 
-    const token = generateToken(user.id);
+    const token = await issueAuthToken(user.id, req);
     res.json({
       success: true,
       message: 'OAuth login successful',
@@ -1271,9 +1540,10 @@ const oauthCallback = async (req, res) => {
     });
   } catch (error) {
     console.error('Error completing OAuth callback:', error);
-    res.status(500).json({
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
       success: false,
-      message: 'Failed to complete OAuth login',
+      message: statusCode === 403 ? error.message : 'Failed to complete OAuth login',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -1425,7 +1695,7 @@ const login = async (req, res) => {
 
     // Generate token
 
-    const token = generateToken(user.id);
+    const token = await issueAuthToken(user.id, req);
 
 
 
@@ -1531,20 +1801,13 @@ const verifyToken = async (req, res) => {
 const logout = async (req, res) => {
 
   try {
-
-    // For JWT-based authentication, logout is typically handled client-side
-
-    // by removing the token from storage. However, we can provide a success response
-
-    // to confirm the logout request was received.
-
-    // In a more sophisticated implementation, you might:
-
-    // 1. Add the token to a blacklist (if using token blacklisting)
-
-    // 2. Remove the token from a user's active tokens list in the database
-
-    // 3. Clear any server-side sessions
+    if (req.auth?.sessionId) {
+      await revokeAuthSession({
+        userId: req.user.id,
+        sessionId: req.auth.sessionId,
+        reason: 'logout'
+      });
+    }
 
     res.json({
 
@@ -1570,6 +1833,71 @@ const logout = async (req, res) => {
 
   }
 
+};
+
+const listSessions = async (req, res) => {
+  try {
+    const sessions = await listAuthSessions(req.user.id);
+    res.json({
+      success: true,
+      data: sessions.map((session) => ({
+        ...session,
+        is_current: Boolean(req.auth?.sessionId && session.id === req.auth.sessionId),
+        is_active: !session.revoked_at && new Date(session.expires_at).getTime() > Date.now()
+      }))
+    });
+  } catch (error) {
+    console.error('Error listing sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to list active sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const revokeSession = async (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    await revokeAuthSession({
+      userId: req.user.id,
+      sessionId,
+      reason: 'user_revoked'
+    });
+
+    res.json({
+      success: true,
+      message: 'Session revoked.'
+    });
+  } catch (error) {
+    console.error('Error revoking session:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to revoke session',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+const revokeAllSessions = async (req, res) => {
+  try {
+    await revokeAllAuthSessions({
+      userId: req.user.id,
+      reason: 'user_revoked_all'
+    });
+
+    res.json({
+      success: true,
+      message: 'All sessions revoked.'
+    });
+  } catch (error) {
+    console.error('Error revoking all sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to revoke all sessions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
 
@@ -1827,6 +2155,8 @@ const changePassword = async (req, res) => {
     // Update password
 
     await run('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newPasswordHash, req.user.id]);
+    await revokePasswordResetTokensForUser(req.user.id);
+    await revokeAllAuthSessions({ userId: req.user.id, reason: 'password_changed' });
 
 
 
@@ -1877,8 +2207,15 @@ module.exports = {
   verifyToken,
 
   logout,
+  listSessions,
+  revokeSession,
+  revokeAllSessions,
   requestAdminAccount,
   createAdminAccount,
+  inviteAdminAccount,
+  acceptAdminInvite,
+  listAdminInviteAccounts,
+  cancelAdminInviteAccount,
   listPendingAdmins,
   listAdminAccounts,
   listUserAccounts,

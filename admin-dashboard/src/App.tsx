@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import RoleSelector from "./pages/RoleSelector";
 import AdminLogin from "./pages/AdminLogin";
 import AdminRequest from "./pages/AdminRequest";
+import AdminInvite from "./pages/AdminInvite";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
 import NotFound from "./pages/NotFound";
 import APITest from "./pages/APITest";
@@ -21,6 +22,7 @@ import SuperAdminReview from "./pages/super-admin/Review";
 import SuperAdminUsers from "./pages/super-admin/Users";
 import SuperAdminComments from "./pages/super-admin/Comments";
 import SuperAdminAnalytics from "./pages/super-admin/Analytics";
+import SuperAdminAuditLogs from "./pages/super-admin/AuditLogs";
 import SuperAdminConfessions from "./pages/super-admin/Confessions";
 import SuperAdminProfile from "./pages/super-admin/Profile";
 import SuperAdminNotifications from "./pages/super-admin/Notifications";
@@ -66,6 +68,7 @@ const App = () => (
           <Route path="/select-role" element={<RoleSelector />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/request" element={<AdminRequest />} />
+          <Route path="/admin/invite" element={<AdminInvite />} />
           <Route path="/super-admin/login" element={<SuperAdminLogin />} />
           <Route path="/login" element={<RoleSelector />} /> {/* Default login shows role selector */}
           <Route path="/api-test" element={<APITest />} />
@@ -81,6 +84,7 @@ const App = () => (
           <Route path="/super-admin/confessions" element={<RoleProtectedRoute requiredRoles={SUPER_ADMIN_ROLES}><SuperAdminConfessions /></RoleProtectedRoute>} />
           <Route path="/super-admin/confessions/:id" element={<RoleProtectedRoute requiredRoles={SUPER_ADMIN_ROLES}><AdminViewConfession /></RoleProtectedRoute>} />
           <Route path="/super-admin/analytics" element={<RoleProtectedRoute requiredRoles={SUPER_ADMIN_ROLES}><SuperAdminAnalytics /></RoleProtectedRoute>} />
+          <Route path="/super-admin/audit" element={<RoleProtectedRoute requiredRoles={SUPER_ADMIN_ROLES}><SuperAdminAuditLogs /></RoleProtectedRoute>} />
           <Route path="/super-admin/profile" element={<RoleProtectedRoute requiredRoles={SUPER_ADMIN_ROLES}><SuperAdminProfile /></RoleProtectedRoute>} />
           <Route path="/super-admin/notifications" element={<RoleProtectedRoute requiredRoles={SUPER_ADMIN_ROLES}><SuperAdminNotifications /></RoleProtectedRoute>} />
 

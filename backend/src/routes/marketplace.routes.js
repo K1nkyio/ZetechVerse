@@ -23,6 +23,7 @@ const {
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
 const { requireUserOrAdmin } = require('../middleware/role.middleware');
+const { contentWriteLimiter } = require('../middleware/rateLimit.middleware');
 
 const LISTING_KINDS = ['product', 'service', 'hostel'];
 const PRODUCT_CONDITIONS = ['new', 'used', 'refurbished'];
@@ -315,7 +316,7 @@ router.post('/:id/transactions', authenticateToken, [
 ], recordTransaction);
 
 // Admin routes
-router.post('/', authenticateToken, requireUserOrAdmin, normalizeListingPayload, createValidation, createListing); // Create listing
+router.post('/', authenticateToken, requireUserOrAdmin, contentWriteLimiter, normalizeListingPayload, createValidation, createListing); // Create listing
 router.put('/:id', authenticateToken, requireUserOrAdmin, normalizeListingPayload, updateValidation, updateListing); // Update listing
 router.delete('/:id', authenticateToken, requireUserOrAdmin, deleteListing); // Delete listing
 router.get('/:id', optionalAuth, getListing); // Get single listing

@@ -27,8 +27,15 @@ const {
   verifyToken,
 
   logout,
+  listSessions,
+  revokeSession,
+  revokeAllSessions,
   requestAdminAccount,
   createAdminAccount,
+  inviteAdminAccount,
+  acceptAdminInvite,
+  listAdminInviteAccounts,
+  cancelAdminInviteAccount,
   listPendingAdmins,
   listAdminAccounts,
   listUserAccounts,
@@ -44,6 +51,15 @@ const {
 
 const { authenticateToken } = require('../middleware/auth.middleware');
 const { requireSuperAdmin } = require('../middleware/role.middleware');
+const {
+  loginLimiter,
+  passwordResetLimiter,
+  signupLimiter
+} = require('../middleware/rateLimit.middleware');
+const {
+  ZETECH_EMAIL_REQUIREMENT_MESSAGE,
+  isAllowedZetechEmail
+} = require('../utils/zetechEmail');
 
 
 
@@ -55,9 +71,19 @@ const registerValidation = [
 
     .isEmail()
 
+    .withMessage('Please provide a valid email address')
+
     .normalizeEmail()
 
-    .withMessage('Please provide a valid email address'),
+    .custom((email) => {
+      if (!isAllowedZetechEmail(email)) {
+        throw new Error(ZETECH_EMAIL_REQUIREMENT_MESSAGE);
+      }
+
+      return true;
+    })
+
+    .withMessage(ZETECH_EMAIL_REQUIREMENT_MESSAGE),
 
   body('username')
 
@@ -208,6 +234,40 @@ const adminRequestValidation = [
     .withMessage('Full name must be between 2 and 255 characters')
 ];
 
+const adminInviteValidation = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
+  body('role')
+    .optional()
+    .isIn(['admin', 'super_admin'])
+    .withMessage('Role must be admin or super_admin')
+];
+
+const adminInviteAcceptValidation = [
+  body('token')
+    .trim()
+    .notEmpty()
+    .withMessage('Invitation token is required'),
+  body('username')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ min: 3, max: 30 })
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username must be 3-30 characters and contain only letters, numbers, and underscores'),
+  body('password')
+    .isLength({ min: 12 })
+    .withMessage('Password must be at least 12 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/)
+    .withMessage('Password must contain uppercase, lowercase, number, and symbol'),
+  body('full_name')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ min: 2, max: 255 })
+    .withMessage('Full name must be between 2 and 255 characters')
+];
+
 
 
 const profileUpdateValidation = [
@@ -322,14 +382,15 @@ const passwordChangeValidation = [
 
 // Public routes
 
-router.post('/register', registerValidation, register);
+router.post('/register', signupLimiter, registerValidation, register);
 
-router.post('/login', loginValidation, login);
-router.post('/forgot-password', forgotPasswordValidation, forgotPassword);
-router.post('/reset-password', resetPasswordValidation, resetPassword);
+router.post('/login', loginLimiter, loginValidation, login);
+router.post('/forgot-password', passwordResetLimiter, forgotPasswordValidation, forgotPassword);
+router.post('/reset-password', passwordResetLimiter, resetPasswordValidation, resetPassword);
 router.get('/oauth/:provider', oauthProviderValidation, oauthLogin);
 router.post('/oauth/:provider/callback', oauthCallbackValidation, oauthCallback);
 router.post('/admin/request', adminRequestValidation, requestAdminAccount);
+router.post('/admin/invites/accept', signupLimiter, adminInviteAcceptValidation, acceptAdminInvite);
 
 
 
@@ -344,11 +405,17 @@ router.get('/profile', getProfile);
 router.put('/profile', profileUpdateValidation, updateProfile);
 
 router.put('/change-password', passwordChangeValidation, changePassword);
+router.get('/sessions', listSessions);
+router.delete('/sessions/all', revokeAllSessions);
+router.delete('/sessions/:id', revokeSession);
 
 router.get('/verify', verifyToken);
 
 router.post('/logout', logout);
 router.post('/admin/create', requireSuperAdmin, adminRequestValidation, createAdminAccount);
+router.post('/admin/invites', requireSuperAdmin, adminInviteValidation, inviteAdminAccount);
+router.get('/admin/invites', requireSuperAdmin, listAdminInviteAccounts);
+router.delete('/admin/invites/:id', requireSuperAdmin, cancelAdminInviteAccount);
 router.get('/admin/pending', requireSuperAdmin, listPendingAdmins);
 router.get('/admin/accounts', requireSuperAdmin, listAdminAccounts);
 router.get('/admin/audit', requireSuperAdmin, listAdminAudit);

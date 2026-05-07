@@ -27,6 +27,7 @@ const {
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
 const { requireUserOrAdmin, requireAdmin } = require('../middleware/role.middleware');
+const { commentLimiter, contentWriteLimiter } = require('../middleware/rateLimit.middleware');
 
 // Validation rules
 const confessionValidation = [
@@ -77,13 +78,13 @@ router.get('/:id(\\d+)', optionalAuth, getConfession); // Get single confession
 router.get('/:id(\\d+)/comments', optionalAuth, getConfessionComments); // Get comments for a confession
 
 // Public routes (allow anonymous confession submission)
-router.post('/', optionalAuth, confessionValidation, createConfession); // Create confession (anonymous allowed)
+router.post('/', optionalAuth, contentWriteLimiter, confessionValidation, createConfession); // Create confession (anonymous allowed)
 
 // Protected routes (require authentication)
 router.use(authenticateToken); // All routes below require authentication
 
 router.post('/:id(\\d+)/like', likeConfession); // Like/unlike a confession
-router.post('/:id(\\d+)/comments', commentValidation, addConfessionComment); // Add comment to confession
+router.post('/:id(\\d+)/comments', commentLimiter, commentValidation, addConfessionComment); // Add comment to confession
 router.post('/:id(\\d+)/report', [
   body('reason')
     .trim()

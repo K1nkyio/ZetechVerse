@@ -12,6 +12,7 @@ const {
 } = require('../controllers/messages.controller');
 
 const { authenticateToken } = require('../middleware/auth.middleware');
+const { messageLimiter } = require('../middleware/rateLimit.middleware');
 
 // Validation rules
 const messageValidation = [
@@ -51,6 +52,7 @@ router.get(
 // Send a message
 router.post(
   '/',
+  messageLimiter,
   messageValidation,
   sendMessage
 );

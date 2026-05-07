@@ -6,9 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { User, Bell, Lock, Palette, Trash2, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { LogoutButton } from "@/components/LogoutButton";
-import ThemeToggle from "@/components/ThemeToggle";
 import { useState, useEffect } from 'react';
 import { profileApi } from "@/api/profile.api";
+import { apiClient } from "@/api/base";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthContext } from "@/contexts/auth-context";
 import { useTranslation } from "react-i18next"; // Fixing import statement for useTranslation
@@ -24,6 +24,17 @@ const Settings = () => {
     // Essential notification settings
     emailNotifications: true,
   });
+  const [sessions, setSessions] = useState<Array<{
+    id: string;
+    ip_address?: string | null;
+    user_agent?: string | null;
+    created_at: string;
+    last_seen_at?: string | null;
+    expires_at: string;
+    revoked_at?: string | null;
+    is_current?: boolean;
+    is_active?: boolean;
+  }>>([]);
 
   // Load settings from user profile
   useEffect(() => {
@@ -45,6 +56,58 @@ const Settings = () => {
       loadSettings();
     }
   }, [user]);
+
+  const loadSessions = async () => {
+    try {
+      const response = await apiClient.get<Array<any>>('/auth/sessions');
+      setSessions(response.data || []);
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      void loadSessions();
+    }
+  }, [user]);
+
+  const revokeSession = async (sessionId: string) => {
+    try {
+      await apiClient.delete(`/auth/sessions/${sessionId}`);
+      toast({
+        title: t('settings.updated'),
+        description: 'Session revoked successfully',
+      });
+      await loadSessions();
+    } catch (error: any) {
+      toast({
+        title: 'Session update failed',
+        description: error?.message || 'Could not revoke this session',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const revokeAllSessions = async () => {
+    if (!window.confirm('Log out from all devices, including this one?')) return;
+    try {
+      await apiClient.delete('/auth/sessions/all');
+      apiClient.setToken(null);
+      sessionStorage.removeItem('user_data');
+      toast({
+        title: 'Logged out everywhere',
+        description: 'All active sessions were revoked.',
+      });
+      navigate('/login', { replace: true });
+    } catch (error: any) {
+      toast({
+        title: 'Session update failed',
+        description: error?.message || 'Could not revoke all sessions',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleAccountSettings = () => {
     navigate('/profile');
@@ -136,14 +199,6 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 sm:space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base">{t('settings.darkMode')}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{t('settings.darkModeDescription')}</p>
-                </div>
-                <ThemeToggle />
-              </div>
-              <Separator />
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm sm:text-base">{t('settings.language')}</p>
@@ -221,6 +276,51 @@ const Settings = () => {
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 <span className="text-sm sm:text-base">{t('settings.deleteAccount')}</span>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Active Sessions
+              </CardTitle>
+              <CardDescription>
+                Review where your account is signed in and revoke sessions you do not recognize.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {sessions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active sessions found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="flex flex-col gap-3 rounded-lg border border-border/70 bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-sm">{session.is_current ? 'Current session' : 'Signed-in session'}</p>
+                          {!session.is_active ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Inactive</span> : null}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">{session.user_agent || 'Unknown device'}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          IP {session.ip_address || 'unknown'} · Last seen {session.last_seen_at ? new Date(session.last_seen_at).toLocaleString() : 'unknown'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={session.is_current || !session.is_active}
+                        onClick={() => revokeSession(session.id)}
+                      >
+                        {session.is_current ? 'Current' : 'Revoke'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Button variant="destructive" onClick={revokeAllSessions}>
+                Log out from all devices
               </Button>
             </CardContent>
           </Card>

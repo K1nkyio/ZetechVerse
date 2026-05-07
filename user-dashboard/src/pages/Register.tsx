@@ -12,6 +12,13 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useTranslation } from 'react-i18next';
 
+const ALLOWED_ZETECH_EMAIL_DOMAINS = ['zetech.ac.ke', 'student.zetech.ac.ke'];
+
+const isAllowedZetechEmail = (value: string) => {
+  const domain = value.trim().toLowerCase().split('@').pop();
+  return Boolean(domain && ALLOWED_ZETECH_EMAIL_DOMAINS.includes(domain));
+};
+
 const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -31,6 +38,8 @@ const Register = () => {
     score: 0,
     feedback: '',
   });
+  const hasEmailValue = email.trim().length > 0;
+  const emailDomainInvalid = hasEmailValue && !isAllowedZetechEmail(email);
 
   const checkPasswordStrength = (pwd: string) => {
     let score = 0;
@@ -81,6 +90,11 @@ const Register = () => {
       return;
     }
 
+    if (!isAllowedZetechEmail(email)) {
+      setError(t('auth.register.emailDomainRule'));
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError(t('auth.register.passwordsNoMatch'));
       return;
@@ -119,7 +133,10 @@ const Register = () => {
 
       navigate('/marketplace', { replace: true });
     } catch (err: any) {
-      const errorMessage = err.message || t('auth.register.failedDescription');
+      const validationMessage = Array.isArray(err?.errors)
+        ? err.errors.map((item: any) => item?.msg || item?.message).filter(Boolean).join(', ')
+        : '';
+      const errorMessage = validationMessage || err.message || t('auth.register.failedDescription');
       setError(errorMessage);
       toast({
         title: t('auth.register.failedTitle'),
@@ -191,13 +208,18 @@ const Register = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="your@email.com"
+                    placeholder="name@student.zetech.ac.ke"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
-                    className="h-10 px-3 text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/30"
+                    className={`h-10 px-3 text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/30 ${
+                      emailDomainInvalid ? 'border-destructive focus-visible:ring-destructive/30' : ''
+                    }`}
                     required
                   />
+                  <p className={`text-xs ${emailDomainInvalid ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {emailDomainInvalid ? t('auth.register.emailDomainRule') : t('auth.register.emailDomainHint')}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -293,7 +315,7 @@ const Register = () => {
                 <Button
                   type="submit"
                   className="w-full h-10 text-sm font-medium mt-3 shadow-md hover:shadow-lg transition-shadow"
-                  disabled={loading || passwordStrength.score < 4 || password !== confirmPassword}
+                  disabled={loading || emailDomainInvalid || passwordStrength.score < 4 || password !== confirmPassword}
                 >
                   {loading ? (
                     <>

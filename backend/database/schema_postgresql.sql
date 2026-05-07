@@ -24,6 +24,7 @@ CREATE TABLE users (
     admin_requested_at TIMESTAMP,
     admin_approved_at TIMESTAMP,
     admin_approved_by INTEGER,
+    session_invalidated_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login_at TIMESTAMP,
@@ -531,6 +532,55 @@ CREATE TABLE activity_logs (
 );
 
 -- ===========================================
+-- AUTH SESSIONS, PASSWORD RESETS, ADMIN INVITES
+-- ===========================================
+
+CREATE TABLE auth_sessions (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP,
+    revoked_reason VARCHAR(120),
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE admin_invites (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'super_admin')),
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    invited_by INTEGER,
+    accepted_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    accepted_at TIMESTAMP,
+    cancelled_at TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+
+    FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ===========================================
 -- INDEXES FOR PERFORMANCE
 -- ===========================================
 
@@ -540,6 +590,12 @@ CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_active ON users(is_active);
 CREATE INDEX idx_users_admin_status ON users(admin_status);
+CREATE INDEX idx_auth_sessions_user_id ON auth_sessions(user_id);
+CREATE INDEX idx_auth_sessions_active ON auth_sessions(user_id, revoked_at, expires_at);
+CREATE INDEX idx_password_reset_tokens_hash ON password_reset_tokens(token_hash);
+CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX idx_admin_invites_email ON admin_invites(email);
+CREATE INDEX idx_admin_invites_token_hash ON admin_invites(token_hash);
 
 -- Marketplace indexes
 CREATE INDEX idx_marketplace_category ON marketplace_listings(category_id);

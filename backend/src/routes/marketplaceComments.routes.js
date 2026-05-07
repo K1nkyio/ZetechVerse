@@ -18,6 +18,7 @@ const {
 
 const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/role.middleware');
+const { commentLimiter } = require('../middleware/rateLimit.middleware');
 
 // Validation rules
 const commentValidation = [
@@ -44,7 +45,7 @@ router.get('/listings/:listingId/comments/top-level', getTopLevelComments); // G
 router.get('/comments/:commentId/replies', getCommentReplies); // Get replies for a comment
 
 // Authenticated routes (temporarily completely open for testing)
-router.post('/listings/:listingId/comments', commentValidation, createComment); // Create comment
+router.post('/listings/:listingId/comments', commentLimiter, commentValidation, createComment); // Create comment
 router.put('/comments/:commentId', authenticateToken, updateCommentValidation, updateComment); // Update comment
 router.delete('/comments/:commentId', authenticateToken, deleteComment); // Delete comment
 router.post('/comments/:commentId/like', authenticateToken, likeComment); // Like comment

@@ -17,6 +17,7 @@ import {
   ShoppingBag,
   Calendar,
   Heart,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +45,7 @@ const superAdminItems: SidebarItem[] = [
   { title: "Confessions", icon: Heart, path: "/super-admin/confessions" },
   { title: "Comments", icon: MessageSquare, path: "/super-admin/comments" },
   { title: "Analytics", icon: BarChart3, path: "/super-admin/analytics" },
+  { title: "Audit Logs", icon: Activity, path: "/super-admin/audit" },
   { title: "Profile", icon: User, path: "/super-admin/profile" },
 ];
 
